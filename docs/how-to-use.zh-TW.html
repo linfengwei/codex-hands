@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>codex-hands 使用說明</title>
+<style>
+:root {
+  --bg: #f7f6f2; --surface: #ffffff; --text: #1f1e1b; --muted: #6b6a64; --line: #dcdad2; --hl: #eeedfe;
+  --accent: #534ab7; --ok: #3b6d11; --ok-bg: #eaf3de; --warn: #854f0b; --warn-bg: #faeeda;
+  --code-bg: #f1efe8; --term: #1e1e1e; --term-text: #e6e6e6; --mark: #e24b4a;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1c1c1a; --surface: #262624; --text: #ecebe5; --muted: #a3a29a; --line: #3d3d39; --hl: #2e2a5c;
+    --accent: #afa9ec; --ok: #97c459; --ok-bg: #22330f; --warn: #ef9f27; --warn-bg: #3d2a0a;
+    --code-bg: #30302d; --term: #111110;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1c1c1a; --surface: #262624; --text: #ecebe5; --muted: #a3a29a; --line: #3d3d39; --hl: #2e2a5c;
+  --accent: #afa9ec; --ok: #97c459; --ok-bg: #22330f; --warn: #ef9f27; --warn-bg: #3d2a0a;
+  --code-bg: #30302d; --term: #111110;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.7 "Segoe UI", "Microsoft JhengHei", sans-serif; }
+main { width: 1200px; margin: 0 auto; padding: 28px 0 60px; }
+h1 { font-size: 26px; font-weight: 600; margin: 0 0 2px; }
+h3 { font-size: 16px; font-weight: 600; margin: 22px 0 8px; }
+.lead { color: var(--muted); margin: 0; }
+code { font-family: var(--mono); font-size: 13px; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+
+/* board: three sections, one shown at a time */
+.board { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); padding: 10px 0; margin: 14px 0 18px; display: flex; gap: 10px; align-items: stretch; }
+.chip { flex: 1; text-align: left; padding: 8px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.chip .n { font-weight: 600; color: var(--accent); margin-right: 6px; font-size: 18px; }
+.chip b { font-size: 16px; font-weight: 600; }
+.chip .m { display: block; color: var(--muted); font-size: 12.5px; }
+.chip.on { border: 2px solid var(--accent); background: var(--hl); padding: 7px 13px; }
+.all { padding: 4px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+.all[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+
+.step { display: none; }
+.step.on, .boarded-all .step { display: block; }
+.boarded-all .step { border-bottom: 1px solid var(--line); padding-bottom: 26px; margin-bottom: 26px; }
+.step h2 { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
+.step h2 .n { color: var(--accent); margin-right: 8px; }
+.step .why { color: var(--muted); margin: 0 0 14px; }
+.cols { display: grid; grid-template-columns: 560px 1fr; gap: 26px; align-items: start; }
+.do { margin: 0; padding-left: 22px; }
+.do li { margin-bottom: 12px; }
+.hint { font-size: 13px; color: var(--muted); }
+.tag { display: inline-block; font-size: 11.5px; padding: 0 8px; border-radius: 999px; margin-left: 6px; vertical-align: 1px; background: var(--warn-bg); color: var(--warn); }
+
+/* paste blocks */
+.copy { position: relative; margin: 6px 0 4px; }
+.copy .lbl { font-size: 12px; color: var(--muted); }
+.copy pre { margin: 0; padding: 10px 76px 10px 12px; background: var(--term); color: var(--term-text); border-radius: 8px; font: 13.5px/1.65 var(--mono); white-space: pre-wrap; word-break: break-all; }
+.copy button { position: absolute; right: 8px; top: 26px; padding: 2px 10px; font: 12px "Segoe UI", "Microsoft JhengHei", sans-serif; border: 1px solid #555; border-radius: 6px; background: #2c2c2a; color: #ddd; cursor: pointer; }
+.copy button.done { border-color: #97c459; color: #97c459; }
+td .copy { margin: 0; }
+td .copy pre { font-size: 12.5px; padding-top: 7px; padding-bottom: 7px; }
+td .copy button { top: 5px; }
+
+/* ① what happens after pasting the install request */
+.chat { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 12px; display: flex; flex-direction: column; gap: 8px; min-height: 380px; }
+.bub { font-size: 13.5px; padding: 7px 11px; border-radius: 10px; max-width: 92%; transition: opacity .35s, transform .35s; }
+.bub.me { align-self: flex-end; background: var(--hl); }
+.bub.cl { align-self: flex-start; background: var(--code-bg); }
+.bub.ask { align-self: flex-start; background: var(--warn-bg); color: var(--warn); }
+.pick { display: inline-block; margin-left: 6px; padding: 0 8px; border: 2px solid var(--ok); border-radius: 6px; color: var(--ok); background: var(--surface); }
+.bub.end { align-self: flex-start; background: var(--ok-bg); color: var(--ok); font-weight: 600; }
+.bub.t:not(.show) { opacity: 0; transform: translateY(6px); }
+.ok { color: var(--ok); font-weight: 600; }
+
+/* ② drawn walkthrough with click markers */
+.player { display: grid; grid-template-columns: 1fr 330px; gap: 18px; align-items: start; }
+.slides { position: relative; aspect-ratio: 852 / 462; }
+.shot { position: absolute; inset: 0; opacity: 0; transition: opacity .45s; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff; }
+.shot.on { opacity: 1; }
+.shot svg { display: block; width: 100%; height: auto; }
+.shot .mk { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; border: 3px solid var(--mark); animation: pulse 1.2s ease-out infinite; }
+.shot .box { position: absolute; border: 3px solid var(--mark); border-radius: 6px; }
+.shot .lab { position: absolute; transform: translate(-50%, -150%); background: var(--mark); color: #fff; font-size: 12px; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.shot .lab.r { transform: translate(26px, -50%); }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(226,75,74,.55); } 100% { box-shadow: 0 0 0 16px rgba(226,75,74,0); } }
+.calls { list-style: none; margin: 0; padding: 0; font-size: 13.5px; }
+.calls li { border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; margin-bottom: 7px; background: var(--surface); opacity: .45; transition: opacity .3s, border-color .3s; }
+.calls li.on { opacity: 1; border-color: var(--accent); }
+.calls li b { font-weight: 600; color: var(--accent); display: block; }
+.ctl { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.ctl button, .nav button { font: inherit; font-size: 13px; padding: 5px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); cursor: pointer; }
+.ctl .txt { font-size: 14px; }
+.perm { border: 1px solid var(--warn); border-radius: 10px; padding: 12px 14px; background: var(--warn-bg); font-size: 14px; }
+.perm .opts { display: flex; gap: 8px; margin-top: 8px; }
+.perm .opts span { padding: 2px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); }
+.perm .opts .pick { margin: 0; border: 2px solid var(--ok); }
+.real-dialog { display: block; width: 100%; max-width: 560px; border: 1px solid var(--line); border-radius: 8px; }
+.esc { display: flex; gap: 14px; align-items: center; margin-top: 16px; font-size: 14.5px; }
+.key { display: inline-block; min-width: 54px; text-align: center; padding: 8px 10px; border: 1px solid var(--line); border-bottom-width: 4px; border-radius: 8px; background: var(--surface); font-weight: 600; animation: press 1.6s infinite; }
+@keyframes press { 0%, 60%, 100% { transform: none; } 70% { transform: translateY(3px); border-bottom-width: 1px; } }
+
+/* ③ problems and the two permission gates */
+table { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--surface); border: 1px solid var(--line); }
+th, td { text-align: left; padding: 9px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+th { background: var(--code-bg); font-weight: 600; border-top: none; }
+.gates { display: grid; grid-template-columns: 720px 1fr; gap: 18px; align-items: start; }
+.gates svg { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.gates .nd rect { fill: var(--bg); stroke: var(--line); stroke-width: 1.5; transition: fill .3s, stroke .3s; }
+.gates .nd.gate rect { stroke: var(--accent); stroke-dasharray: 5 3; }
+.gates .nd.on rect { fill: var(--hl); stroke: var(--accent); stroke-dasharray: none; stroke-width: 2.5; }
+.gates .nd text { fill: var(--text); font: 600 15px "Segoe UI", "Microsoft JhengHei", sans-serif; }
+.gates .nd text.s { fill: var(--muted); font-weight: 400; font-size: 12.5px; }
+.gates .ln { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+.gates #gdot { fill: #ef9f27; transition: cx .6s, cy .6s; }
+
+.nav { display: flex; justify-content: space-between; margin-top: 24px; }
+.boarded-all .nav { display: none; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <a href="how-to-use.html" lang="en" style="float:right;margin-top:6px;font-size:13px;color:var(--accent)">English</a>
+  <h1>codex-hands 使用說明</h1>
+  <p class="lead">讓 Claude Code 幫你操作 Windows 上的 app：看畫面、點擊、打字。不用打指令，把下面的話複製貼給 Claude Code 就好。</p>
+
+  <div class="board">
+    <button class="chip" data-s="1"><span class="n">①</span><b>安裝</b><span class="m">貼一段話，Claude Code 幫你裝好</span></button>
+    <button class="chip" data-s="2"><span class="n">②</span><b>使用</b><span class="m">/codex-hands:do 加上要做的事</span></button>
+    <button class="chip" data-s="3"><span class="n">③</span><b>遇到問題</b><span class="m">看到什麼、貼什麼</span></button>
+    <button class="all" id="all" aria-pressed="false">全部展開</button>
+  </div>
+
+  <!-- ① -->
+  <section class="step" data-s="1">
+    <h2><span class="n">①</span>安裝</h2>
+    <p class="why">只做一次。電腦上要先有 Codex app（Microsoft Store 的「Codex」，OpenAI 出的）；沒有的話 Claude 會告訴你。</p>
+    <div class="cols">
+      <div>
+        <ol class="do">
+          <li>打開 Claude Code（桌面 app 的 Code 分頁，或終端機裡的 <code>claude</code>）。</li>
+          <li>複製這段，貼給 Claude Code 送出：
+            <div class="copy"><span class="lbl">貼給 Claude Code</span><pre>請幫我安裝 codex-hands plugin，讓你可以操作我電腦上的 Windows app。plugin 在 GitHub：https://github.com/linfengwei/codex-hands。請依序做，每一步告訴我結果，失敗就停下來告訴我怎麼辦：
+1. 確認有安裝 Codex app：在 PowerShell 執行 Get-AppxPackage -Name OpenAI.Codex。沒有的話，請我從 Microsoft Store 安裝「Codex」（OpenAI）。
+2. 確認有 Node：執行 node --version。
+3. 安裝 plugin：執行 claude plugin marketplace add linfengwei/codex-hands，再執行 claude plugin install codex-hands@codex-hands。
+4. 試啟動：在 Claude Code 下載它的資料夾（%USERPROFILE%\.claude\plugins\marketplaces\codex-hands）執行 node test/smoke.mjs，輸出要有 tools: 那一行。
+做完後提醒我關掉 Claude Code 再打開。</pre><button>複製</button></div>
+            <span class="hint">Claude Code 會自己從 GitHub 下載 plugin，你不用先下載。要操作哪些 app 不用先設定，第一次用到時 Claude Code 會問你。</span>
+          </li>
+          <li>Claude Code 問「可以執行這個指令嗎？」時，選允許。</li>
+          <li>它說完成後，<b>關掉 Claude Code 再打開</b>，就可以開始用了。</li>
+        </ol>
+      </div>
+      <div>
+        <div class="hint">貼上之後會發生什麼<span class="tag">示意</span></div>
+        <div class="chat" id="chat">
+          <div class="bub me">請幫我安裝 codex-hands plugin，讓你可以操作我電腦上的 Windows app…</div>
+          <div class="bub cl t"><span class="ok">✓</span> 1. Codex app 已安裝（OpenAI.Codex 26.1016.6573.0）</div>
+          <div class="bub cl t"><span class="ok">✓</span> 2. Node v22.20.0</div>
+          <div class="bub ask t">Claude Code：可以執行 <code>claude plugin install codex-hands@codex-hands</code> 嗎？<span class="pick">允許</span></div>
+          <div class="bub cl t"><span class="ok">✓</span> 3. plugin 已安裝</div>
+          <div class="bub cl t"><span class="ok">✓</span> 4. 試啟動成功，14 個工具都在</div>
+          <div class="bub end t">完成。請關掉 Claude Code 再打開，之後打 <code>/codex-hands:do</code> 加上要做的事就可以開始用。</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ② -->
+  <section class="step" data-s="2">
+    <h2><span class="n">②</span>使用</h2>
+    <p class="why">在 Claude Code 打 <code>/codex-hands:do</code>，後面用一般的話說：哪個 app、要做到什麼。Claude 會先截圖看畫面，一次做一個動作，做完再截圖確認。不打斜線直接說也可以，但 Claude 不一定每次都會用到這個 plugin。</p>
+    <div class="cols">
+      <div>
+        <div class="copy"><span class="lbl">貼給 Claude Code：只看不動</span><pre>/codex-hands:do 截一張 Video Editor 現在的畫面給我看，告訴我它停在哪一頁</pre><button>複製</button></div>
+        <div class="copy"><span class="lbl">貼給 Claude Code：完成一件事</span><pre>/codex-hands:do 在 Video Editor，把「最近使用」的第二段影片加到時間軸，完成後截圖給我看</pre><button>複製</button></div>
+        <div class="copy"><span class="lbl">貼給 Claude Code：檢查狀態</span><pre>/codex-hands:do 看一下 Video Editor 現在的「匯出」按鈕能不能按，不要按下去</pre><button>複製</button></div>
+      </div>
+      <div>
+        <div class="hint">第一次碰某個 app 時會問你。在終端機的 <code>claude</code>，是 Claude Code 自己的對話框：</div>
+        <div class="perm">codex-hands 想操作 <b>videoeditor.exe</b>（看畫面、點擊、打字）。要允許嗎？<span class="tag">示意</span>
+          <div class="opts"><span class="pick">一律允許（記住，以後不再問）</span><span>只允許到 Claude Code 關掉</span><span>拒絕</span></div>
+        </div>
+        <div class="hint" style="margin:10px 0 4px">在 Claude 桌面 app，Claude Code 沒辦法跳對話框，所以改跳這個 Windows 小視窗，選項一樣（實際畫面）：</div>
+        <img class="real-dialog" src="img/allow-dialog.zh-TW.png" alt="codex-hands 的允許視窗：一律允許、只允許到 Claude Code 關掉、拒絕">
+        <div class="hint" style="margin:6px 0 12px">只有你能回答，Claude 不能替你選。3 分鐘內沒回答就當作不允許。終端機這類危險的 app 一律拒絕，不會問。</div>
+        <div class="hint">第一次用某個工具時，Claude Code 也會問：</div>
+        <div class="perm">Claude 想使用 <b>codex-hands</b> 的 <b>click</b>，要允許嗎？<span class="tag">示意</span>
+          <div class="opts"><span>是</span><span class="pick">是，以後不用再問</span><span>否</span></div>
+        </div>
+        <div class="esc"><span class="key">Esc</span><span>操作時隨時按 Esc，它就立刻停，不會再點擊或打字。要繼續就再跟它說一次。</span></div>
+      </div>
+    </div>
+
+    <h3>它操作的樣子（示意圖）</h3>
+    <div class="player">
+      <div>
+        <div class="slides" id="slides">
+          <div class="shot"><svg viewBox="0 0 852 462" role="img" aria-label="首頁" font-family="Segoe UI, Microsoft JhengHei UI, sans-serif"><defs><linearGradient id="d0g0" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#1e3a8a"/></linearGradient><linearGradient id="d0g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fb923c"/><stop offset="1" stop-color="#7c3aed"/></linearGradient><linearGradient id="d0g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a3e635"/><stop offset="1" stop-color="#166534"/></linearGradient><linearGradient id="d0g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f472b6"/><stop offset="1" stop-color="#1e1b4b"/></linearGradient><linearGradient id="d0g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#60a5fa"/><stop offset="1" stop-color="#0f172a"/></linearGradient><linearGradient id="d0g5" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#facc15"/><stop offset="1" stop-color="#9a3412"/></linearGradient></defs><rect width="852" height="462" fill="#ffffff"/><rect width="852" height="30" fill="#f1f1f4"/>
+<rect x="12" y="9" width="12" height="12" rx="3" fill="#6d5df6"/><text x="32" y="20" font-size="12" fill="#333">Video Editor</text>
+<text x="760" y="20" font-size="12" fill="#777">—</text><rect x="792" y="11" width="9" height="9" fill="none" stroke="#777"/><text x="826" y="20" font-size="13" fill="#777">✕</text><rect x="0" y="30" width="150" height="432" fill="#f7f7f9"/><line x1="150" y1="30" x2="150" y2="462" stroke="#e3e3e8"/><rect x="8" y="47" width="134" height="28" rx="6" fill="#e9e6ff"/><rect x="20" y="56" width="12" height="12" rx="3" fill="#6d5df6"/><text x="42" y="66" font-size="12" fill="#3d2fc4">首頁</text><rect x="20" y="90" width="12" height="12" rx="3" fill="#b9b9c6"/><text x="42" y="100" font-size="12" fill="#444">影片工具</text><rect x="20" y="124" width="12" height="12" rx="3" fill="#b9b9c6"/><text x="42" y="134" font-size="12" fill="#444">相片工具</text><rect x="20" y="158" width="12" height="12" rx="3" fill="#b9b9c6"/><text x="42" y="168" font-size="12" fill="#444">我的專案</text><rect x="176" y="50" width="650" height="140" rx="10" fill="url(#d0g4)"/>
+<text x="268" y="108" font-size="26" font-weight="600" fill="#fff">歡迎回來</text><text x="268" y="136" font-size="13" fill="#dbe7ff">從最近的專案繼續，或開始新的。</text>
+<text x="176" y="224" font-size="13" font-weight="600" fill="#333">最近的專案</text><rect x="176" y="238" width="206" height="150" rx="8" fill="#fff" stroke="#e3e3e8"/><rect x="184" y="246" width="190" height="104" rx="5" fill="url(#d0g2)"/><rect x="184" y="360" width="120" height="8" rx="4" fill="#d6d6de"/><rect x="184" y="374" width="70" height="6" rx="3" fill="#e6e6ec"/><rect x="398" y="238" width="206" height="150" rx="8" fill="#fff" stroke="#e3e3e8"/><rect x="406" y="246" width="190" height="104" rx="5" fill="url(#d0g3)"/><rect x="406" y="360" width="120" height="8" rx="4" fill="#d6d6de"/><rect x="406" y="374" width="70" height="6" rx="3" fill="#e6e6ec"/><rect x="620" y="238" width="206" height="150" rx="8" fill="#fff" stroke="#e3e3e8"/><rect x="628" y="246" width="190" height="104" rx="5" fill="url(#d0g4)"/><rect x="628" y="360" width="120" height="8" rx="4" fill="#d6d6de"/><rect x="628" y="374" width="70" height="6" rx="3" fill="#e6e6ec"/></svg><div class="mk" style="left:7.0%;top:20.8%"></div><div class="lab r" style="left:16.4%;top:20.8%">影片工具</div></div>
+          <div class="shot"><svg viewBox="0 0 852 462" role="img" aria-label="影片工具頁" font-family="Segoe UI, Microsoft JhengHei UI, sans-serif"><defs><linearGradient id="d1g0" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#1e3a8a"/></linearGradient><linearGradient id="d1g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fb923c"/><stop offset="1" stop-color="#7c3aed"/></linearGradient><linearGradient id="d1g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a3e635"/><stop offset="1" stop-color="#166534"/></linearGradient><linearGradient id="d1g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f472b6"/><stop offset="1" stop-color="#1e1b4b"/></linearGradient><linearGradient id="d1g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#60a5fa"/><stop offset="1" stop-color="#0f172a"/></linearGradient><linearGradient id="d1g5" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#facc15"/><stop offset="1" stop-color="#9a3412"/></linearGradient></defs><rect width="852" height="462" fill="#ffffff"/><rect width="852" height="30" fill="#f1f1f4"/>
+<rect x="12" y="9" width="12" height="12" rx="3" fill="#6d5df6"/><text x="32" y="20" font-size="12" fill="#333">Video Editor</text>
+<text x="760" y="20" font-size="12" fill="#777">—</text><rect x="792" y="11" width="9" height="9" fill="none" stroke="#777"/><text x="826" y="20" font-size="13" fill="#777">✕</text><rect x="0" y="30" width="150" height="432" fill="#f7f7f9"/><line x1="150" y1="30" x2="150" y2="462" stroke="#e3e3e8"/><rect x="20" y="56" width="12" height="12" rx="3" fill="#b9b9c6"/><text x="42" y="66" font-size="12" fill="#444">首頁</text><rect x="8" y="81" width="134" height="28" rx="6" fill="#e9e6ff"/><rect x="20" y="90" width="12" height="12" rx="3" fill="#6d5df6"/><text x="42" y="100" font-size="12" fill="#3d2fc4">影片工具</text><rect x="20" y="124" width="12" height="12" rx="3" fill="#b9b9c6"/><text x="42" y="134" font-size="12" fill="#444">相片工具</text><rect x="20" y="158" width="12" height="12" rx="3" fill="#b9b9c6"/><text x="42" y="168" font-size="12" fill="#444">我的專案</text><text x="176" y="60" font-size="16" font-weight="600" fill="#222">影片工具</text><rect x="176" y="76" width="206" height="134" rx="10" fill="#fff" stroke="#e3e3e8"/><rect x="192" y="92" width="44" height="44" rx="10" fill="url(#d1g0)"/><text x="192" y="168" font-size="14" font-weight="600" fill="#222">影片編輯器</text><rect x="192" y="180" width="140" height="7" rx="3.5" fill="#e6e6ec"/><rect x="398" y="76" width="206" height="134" rx="10" fill="#fff" stroke="#e3e3e8"/><rect x="414" y="92" width="44" height="44" rx="10" fill="url(#d1g1)"/><text x="414" y="168" font-size="14" font-weight="600" fill="#222">剪裁影片</text><rect x="414" y="180" width="140" height="7" rx="3.5" fill="#e6e6ec"/><rect x="620" y="76" width="206" height="134" rx="10" fill="#fff" stroke="#e3e3e8"/><rect x="636" y="92" width="44" height="44" rx="10" fill="url(#d1g2)"/><text x="636" y="168" font-size="14" font-weight="600" fill="#222">轉換格式</text><rect x="636" y="180" width="140" height="7" rx="3.5" fill="#e6e6ec"/><rect x="176" y="226" width="206" height="134" rx="10" fill="#fff" stroke="#e3e3e8"/><rect x="192" y="242" width="44" height="44" rx="10" fill="url(#d1g3)"/><text x="192" y="318" font-size="14" font-weight="600" fill="#222">加上字幕</text><rect x="192" y="330" width="140" height="7" rx="3.5" fill="#e6e6ec"/><rect x="398" y="226" width="206" height="134" rx="10" fill="#fff" stroke="#e3e3e8"/><rect x="414" y="242" width="44" height="44" rx="10" fill="url(#d1g4)"/><text x="414" y="318" font-size="14" font-weight="600" fill="#222">調整顏色</text><rect x="414" y="330" width="140" height="7" rx="3.5" fill="#e6e6ec"/><rect x="620" y="226" width="206" height="134" rx="10" fill="#fff" stroke="#e3e3e8"/><rect x="636" y="242" width="44" height="44" rx="10" fill="url(#d1g5)"/><text x="636" y="318" font-size="14" font-weight="600" fill="#222">螢幕錄影</text><rect x="636" y="330" width="140" height="7" rx="3.5" fill="#e6e6ec"/></svg><div class="mk" style="left:32.7%;top:31.0%"></div><div class="lab" style="left:32.7%;top:31.0%">影片編輯器</div></div>
+          <div class="shot"><svg viewBox="0 0 852 462" role="img" aria-label="空的影片編輯器" font-family="Segoe UI, Microsoft JhengHei UI, sans-serif"><defs><linearGradient id="d2g0" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#1e3a8a"/></linearGradient><linearGradient id="d2g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fb923c"/><stop offset="1" stop-color="#7c3aed"/></linearGradient><linearGradient id="d2g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a3e635"/><stop offset="1" stop-color="#166534"/></linearGradient><linearGradient id="d2g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f472b6"/><stop offset="1" stop-color="#1e1b4b"/></linearGradient><linearGradient id="d2g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#60a5fa"/><stop offset="1" stop-color="#0f172a"/></linearGradient><linearGradient id="d2g5" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#facc15"/><stop offset="1" stop-color="#9a3412"/></linearGradient></defs><rect width="852" height="462" fill="#ffffff"/><rect width="852" height="30" fill="#f1f1f4"/>
+<rect x="12" y="9" width="12" height="12" rx="3" fill="#6d5df6"/><text x="32" y="20" font-size="12" fill="#333">Video Editor</text>
+<text x="760" y="20" font-size="12" fill="#777">—</text><rect x="792" y="11" width="9" height="9" fill="none" stroke="#777"/><text x="826" y="20" font-size="13" fill="#777">✕</text><rect x="0" y="30" width="852" height="30" fill="#fafafc"/><line x1="0" y1="60" x2="852" y2="60" stroke="#e3e3e8"/>
+<text x="16" y="50" font-size="12" fill="#444">檔案</text><text x="70" y="50" font-size="12" fill="#444">編輯</text><text x="124" y="50" font-size="12" fill="#444">檢視</text><rect x="770" y="36" width="68" height="20" rx="5" fill="#6d5df6"/><text x="804" y="50" font-size="11" fill="#fff" text-anchor="middle">匯出</text>
+<rect x="0" y="60" width="292" height="246" fill="#f7f7f9"/><text x="14" y="79" font-size="11" font-weight="600" fill="#555">最近使用</text>
+<rect x="14" y="88" width="82" height="54" rx="5" fill="url(#d2g0)"/><rect x="60" y="127" width="32" height="12" rx="3" fill="#000a"/><text x="63" y="136" font-size="9" fill="#fff">00:08</text><rect x="106" y="88" width="82" height="54" rx="5" fill="url(#d2g1)"/><circle cx="147" cy="122" r="9" fill="#fde68a"/><rect x="152" y="127" width="32" height="12" rx="3" fill="#000a"/><text x="155" y="136" font-size="9" fill="#fff">00:15</text><rect x="198" y="88" width="82" height="54" rx="5" fill="url(#d2g2)"/><rect x="244" y="127" width="32" height="12" rx="3" fill="#000a"/><text x="247" y="136" font-size="9" fill="#fff">00:32</text><rect x="14" y="158" width="82" height="54" rx="5" fill="url(#d2g3)"/><rect x="60" y="197" width="32" height="12" rx="3" fill="#000a"/><text x="63" y="206" font-size="9" fill="#fff">00:05</text><rect x="106" y="158" width="82" height="54" rx="5" fill="url(#d2g4)"/><rect x="152" y="197" width="32" height="12" rx="3" fill="#000a"/><text x="155" y="206" font-size="9" fill="#fff">00:21</text><rect x="198" y="158" width="82" height="54" rx="5" fill="url(#d2g5)"/><rect x="244" y="197" width="32" height="12" rx="3" fill="#000a"/><text x="247" y="206" font-size="9" fill="#fff">00:12</text><rect x="292" y="60" width="560" height="246" fill="#ececf0"/><rect x="310" y="70" width="526" height="226" fill="#1d1d24"/><text x="573" y="187" font-size="13" fill="#77778a" text-anchor="middle">預覽</text>
+<rect x="0" y="306" width="852" height="156" fill="#f4f4f7"/><line x1="0" y1="306" x2="852" y2="306" stroke="#e3e3e8"/><line x1="300" y1="318" x2="300" y2="326" stroke="#aaa"/><text x="303" y="326" font-size="9" fill="#888">00:00</text><line x1="376" y1="318" x2="376" y2="326" stroke="#aaa"/><text x="379" y="326" font-size="9" fill="#888">00:05</text><line x1="452" y1="318" x2="452" y2="326" stroke="#aaa"/><text x="455" y="326" font-size="9" fill="#888">00:10</text><line x1="528" y1="318" x2="528" y2="326" stroke="#aaa"/><text x="531" y="326" font-size="9" fill="#888">00:15</text><line x1="604" y1="318" x2="604" y2="326" stroke="#aaa"/><text x="607" y="326" font-size="9" fill="#888">00:20</text><line x1="680" y1="318" x2="680" y2="326" stroke="#aaa"/><text x="683" y="326" font-size="9" fill="#888">00:25</text><line x1="756" y1="318" x2="756" y2="326" stroke="#aaa"/><text x="759" y="326" font-size="9" fill="#888">00:30</text>
+<text x="16" y="380" font-size="11" fill="#666">影片</text><text x="16" y="416" font-size="11" fill="#666">音訊</text>
+<rect x="300" y="356" width="538" height="40" rx="5" fill="#fff" stroke="#e6e6ec"/><rect x="300" y="398" width="538" height="28" rx="5" fill="#fff" stroke="#e6e6ec"/><text x="530" y="381" font-size="12" fill="#9a9aa8" text-anchor="middle">把影片拖到這裡</text>
+<line x1="300" y1="312" x2="300" y2="440" stroke="#ef4444" stroke-width="1.5"/></svg><div class="mk" style="left:17.3%;top:24.9%"></div><div class="lab" style="left:17.3%;top:20.8%">00:15 的影片</div></div>
+          <div class="shot"><svg viewBox="0 0 852 462" role="img" aria-label="時間軸多了一段影片" font-family="Segoe UI, Microsoft JhengHei UI, sans-serif"><defs><linearGradient id="d3g0" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#1e3a8a"/></linearGradient><linearGradient id="d3g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fb923c"/><stop offset="1" stop-color="#7c3aed"/></linearGradient><linearGradient id="d3g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a3e635"/><stop offset="1" stop-color="#166534"/></linearGradient><linearGradient id="d3g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f472b6"/><stop offset="1" stop-color="#1e1b4b"/></linearGradient><linearGradient id="d3g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#60a5fa"/><stop offset="1" stop-color="#0f172a"/></linearGradient><linearGradient id="d3g5" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#facc15"/><stop offset="1" stop-color="#9a3412"/></linearGradient></defs><rect width="852" height="462" fill="#ffffff"/><rect width="852" height="30" fill="#f1f1f4"/>
+<rect x="12" y="9" width="12" height="12" rx="3" fill="#6d5df6"/><text x="32" y="20" font-size="12" fill="#333">Video Editor</text>
+<text x="760" y="20" font-size="12" fill="#777">—</text><rect x="792" y="11" width="9" height="9" fill="none" stroke="#777"/><text x="826" y="20" font-size="13" fill="#777">✕</text><rect x="0" y="30" width="852" height="30" fill="#fafafc"/><line x1="0" y1="60" x2="852" y2="60" stroke="#e3e3e8"/>
+<text x="16" y="50" font-size="12" fill="#444">檔案</text><text x="70" y="50" font-size="12" fill="#444">編輯</text><text x="124" y="50" font-size="12" fill="#444">檢視</text><rect x="770" y="36" width="68" height="20" rx="5" fill="#6d5df6"/><text x="804" y="50" font-size="11" fill="#fff" text-anchor="middle">匯出</text>
+<rect x="0" y="60" width="292" height="246" fill="#f7f7f9"/><text x="14" y="79" font-size="11" font-weight="600" fill="#555">最近使用</text>
+<rect x="14" y="88" width="82" height="54" rx="5" fill="url(#d3g0)"/><rect x="60" y="127" width="32" height="12" rx="3" fill="#000a"/><text x="63" y="136" font-size="9" fill="#fff">00:08</text><rect x="106" y="88" width="82" height="54" rx="5" fill="url(#d3g1)"/><circle cx="147" cy="122" r="9" fill="#fde68a"/><rect x="152" y="127" width="32" height="12" rx="3" fill="#000a"/><text x="155" y="136" font-size="9" fill="#fff">00:15</text><rect x="198" y="88" width="82" height="54" rx="5" fill="url(#d3g2)"/><rect x="244" y="127" width="32" height="12" rx="3" fill="#000a"/><text x="247" y="136" font-size="9" fill="#fff">00:32</text><rect x="14" y="158" width="82" height="54" rx="5" fill="url(#d3g3)"/><rect x="60" y="197" width="32" height="12" rx="3" fill="#000a"/><text x="63" y="206" font-size="9" fill="#fff">00:05</text><rect x="106" y="158" width="82" height="54" rx="5" fill="url(#d3g4)"/><rect x="152" y="197" width="32" height="12" rx="3" fill="#000a"/><text x="155" y="206" font-size="9" fill="#fff">00:21</text><rect x="198" y="158" width="82" height="54" rx="5" fill="url(#d3g5)"/><rect x="244" y="197" width="32" height="12" rx="3" fill="#000a"/><text x="247" y="206" font-size="9" fill="#fff">00:12</text><rect x="292" y="60" width="560" height="246" fill="#ececf0"/><rect x="310" y="70" width="526" height="226" fill="url(#d3g1)"/><circle cx="573" cy="200" r="38" fill="#fde68a"/><path d="M310 258 L420 200 L500 240 L600 180 L700 236 L836 190 L836 296 L310 296Z" fill="#1e1b4bcc"/>
+<rect x="0" y="306" width="852" height="156" fill="#f4f4f7"/><line x1="0" y1="306" x2="852" y2="306" stroke="#e3e3e8"/><line x1="300" y1="318" x2="300" y2="326" stroke="#aaa"/><text x="303" y="326" font-size="9" fill="#888">00:00</text><line x1="376" y1="318" x2="376" y2="326" stroke="#aaa"/><text x="379" y="326" font-size="9" fill="#888">00:05</text><line x1="452" y1="318" x2="452" y2="326" stroke="#aaa"/><text x="455" y="326" font-size="9" fill="#888">00:10</text><line x1="528" y1="318" x2="528" y2="326" stroke="#aaa"/><text x="531" y="326" font-size="9" fill="#888">00:15</text><line x1="604" y1="318" x2="604" y2="326" stroke="#aaa"/><text x="607" y="326" font-size="9" fill="#888">00:20</text><line x1="680" y1="318" x2="680" y2="326" stroke="#aaa"/><text x="683" y="326" font-size="9" fill="#888">00:25</text><line x1="756" y1="318" x2="756" y2="326" stroke="#aaa"/><text x="759" y="326" font-size="9" fill="#888">00:30</text>
+<text x="16" y="380" font-size="11" fill="#666">影片</text><text x="16" y="416" font-size="11" fill="#666">音訊</text>
+<rect x="300" y="356" width="538" height="40" rx="5" fill="#fff" stroke="#e6e6ec"/><rect x="300" y="398" width="538" height="28" rx="5" fill="#fff" stroke="#e6e6ec"/><rect x="300" y="360" width="170" height="32" rx="5" fill="url(#d3g1)"/><rect x="304" y="364" width="37" height="24" rx="3" fill="#ffffff33"/><rect x="345" y="364" width="37" height="24" rx="3" fill="#ffffff33"/><rect x="386" y="364" width="37" height="24" rx="3" fill="#ffffff33"/><rect x="427" y="364" width="37" height="24" rx="3" fill="#ffffff33"/>
+<rect x="300" y="400" width="170" height="24" rx="5" fill="#c4f1e4"/><path d="M304 412 L306 415 L310 407 L314 419 L318 408 L322 418 L326 409 L330 417 L334 405 L338 416 L342 406 L346 415 L350 407 L354 419 L358 408 L362 418 L366 409 L370 417 L374 405 L378 416 L382 406 L386 415 L390 407 L394 419 L398 408 L402 418 L406 409 L410 417 L414 405 L418 416 L422 406 L426 415 L430 407 L434 419 L438 408 L442 418 L446 409 L450 417 L454 405 L458 416 L462 406 L466 415" fill="none" stroke="#14b8a6" stroke-width="1.2"/>
+<line x1="470" y1="312" x2="470" y2="440" stroke="#ef4444" stroke-width="1.5"/></svg><div class="box" style="left:34.7%;top:77.1%;width:20.9%;height:8.7%"></div><div class="lab" style="left:45.2%;top:77.1%">加進來的影片</div></div>
+        </div>
+        <div class="ctl"><button id="pPrev">上一步</button><button id="pPlay">暫停</button><button id="pNext">下一步</button><span class="txt" id="pTxt"></span></div>
+      </div>
+      <ol class="calls" id="calls">
+        <li><b>看畫面</b>你說「在 Video Editor 加一段影片」。Claude 截圖，看到首頁，點左邊的「影片工具」。</li>
+        <li><b>點「影片編輯器」</b>點完拿到新截圖：影片工具頁。接著點「影片編輯器」。</li>
+        <li><b>點一段影片</b>新截圖：空的編輯器。點「最近使用」裡 00:15 的影片。</li>
+        <li><b>確認完成</b>新截圖：時間軸上多了一段影片。Claude 回報完成，附上截圖。</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ③ -->
+  <section class="step" data-s="3">
+    <h2><span class="n">③</span>遇到問題</h2>
+    <p class="why">找你看到的那一行，把右邊那段貼給 Claude Code。</p>
+    <table>
+      <tr><th style="width:34%">你看到的</th><th>貼給 Claude Code</th></tr>
+      <tr><td>不小心在對話框按了<b>拒絕</b></td><td><div class="copy"><pre>再試一次剛才的操作，這次我會在對話框選允許</pre><button>複製</button></div><span class="hint">拒絕不會被記住，再試一次就會再問你。</span></td></tr>
+      <tr><td>想<b>取消允許</b>某個 app</td><td><div class="copy"><pre>用 codex-hands 的 allowed_apps 把 videoeditor.exe 從允許清單移除</pre><button>複製</button></div><span class="hint">把 <code>videoeditor.exe</code> 換成那個 app 的 exe 名稱。想看現在允許了哪些，就說「列出 codex-hands 允許的 app」。</span></td></tr>
+      <tr><td>Claude 在等你允許，但<b>沒看到問你的視窗</b></td><td><span class="hint">看一下工作列有沒有 <b>codex-hands</b> 的視窗，它可能被別的視窗蓋住。3 分鐘內沒回答，Claude 會問你要不要再試。</span></td></tr>
+      <tr><td>Claude 說允許的視窗<b>無法顯示</b></td><td><div class="copy"><pre>再試一次剛才的操作</pre><button>複製</button></div><span class="hint">還是不行，就把 Claude 回報的錯誤訊息拿給維護這個 plugin 的人。</span></td></tr>
+      <tr><td>Claude 說某個 app <b>一律拒絕</b></td><td><span class="hint">終端機、Claude、Codex、ChatGPT 和鎖定畫面，為了安全不能操作，也不能改。</span></td></tr>
+      <tr><td>Claude 說<b>沒有 codex-hands 的工具</b></td><td><span class="hint">先關掉 Claude Code 再打開。還是不行，就再貼一次 ① 的那段。</span></td></tr>
+      <tr><td>Claude 說<b>找不到 Codex app</b></td><td><span class="hint">從 Microsoft Store 安裝「Codex」（OpenAI），再貼一次 ① 的那段。Codex app 裝好就好，不用開著。</span></td></tr>
+      <tr><td>Claude 說<b>使用者停止了操作</b></td><td><div class="copy"><pre>繼續剛才的操作</pre><button>複製</button></div><span class="hint">這是你按了 Esc（或它以為你按了）。</span></td></tr>
+      <tr><td>Codex app 更新後就<b>不能用了</b></td><td><div class="copy"><pre>更新 codex-hands plugin（claude plugin marketplace update codex-hands，再 claude plugin update codex-hands@codex-hands），然後在 %USERPROFILE%\.claude\plugins\marketplaces\codex-hands 執行 node test/smoke.mjs，告訴我結果和可能的原因</pre><button>複製</button></div><span class="hint">GitHub 上的新版本可能已經修好了。</span></td></tr>
+      <tr><td>想要<b>最新版本</b></td><td><div class="copy"><pre>更新 codex-hands plugin：執行 claude plugin marketplace update codex-hands，再執行 claude plugin update codex-hands@codex-hands</pre><button>複製</button></div><span class="hint">然後關掉 Claude Code 再打開。</span></td></tr>
+      <tr><td>不想再用，要<b>移除</b></td><td><div class="copy"><pre>移除 codex-hands plugin：執行 claude plugin uninstall codex-hands@codex-hands</pre><button>複製</button></div></td></tr>
+    </table>
+
+    <h3>為什麼有時會被擋：兩道關卡</h3>
+    <p class="why">跟著 Claude 的一次點擊走一遍。虛線框是關卡。Codex app 只提供操作的程式，本身不用開著，也不做任何決定。</p>
+    <div class="gates">
+      <div>
+        <svg viewBox="0 0 720 330" role="img" aria-label="一次點擊經過的兩道權限關卡">
+          <defs><marker id="ga" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5"/></marker></defs>
+          <line class="ln" x1="132" y1="72" x2="150" y2="72" marker-end="url(#ga)"/>
+          <line class="ln" x1="282" y1="72" x2="300" y2="72" marker-end="url(#ga)"/>
+          <line class="ln" x1="432" y1="62" x2="450" y2="62" marker-end="url(#ga)"/>
+          <line class="ln" x1="452" y1="84" x2="434" y2="84" marker-end="url(#ga)"/>
+          <line class="ln" x1="574" y1="72" x2="592" y2="72" marker-end="url(#ga)"/>
+          <line class="ln" x1="367" y1="104" x2="367" y2="168" marker-end="url(#ga)"/>
+          <line class="ln" x1="513" y1="270" x2="513" y2="106" marker-end="url(#ga)"/>
+          <g class="nd" id="g0"><rect x="14" y="40" width="118" height="64" rx="8"/><text x="73" y="66" text-anchor="middle">Claude</text><text class="s" x="73" y="88" text-anchor="middle">想點一下</text></g>
+          <g class="nd gate" id="g1"><rect x="152" y="40" width="130" height="64" rx="8"/><text x="217" y="66" text-anchor="middle">關卡 1</text><text class="s" x="217" y="88" text-anchor="middle">Claude Code 管</text></g>
+          <g class="nd" id="g2"><rect x="302" y="40" width="130" height="64" rx="8"/><text x="367" y="66" text-anchor="middle">plugin</text><text class="s" x="367" y="88" text-anchor="middle">codex-hands</text></g>
+          <g class="nd" id="g3"><rect x="452" y="40" width="122" height="64" rx="8"/><text x="513" y="66" text-anchor="middle">helper</text><text class="s" x="513" y="88" text-anchor="middle">Codex 附的程式</text></g>
+          <g class="nd" id="g5"><rect x="594" y="40" width="112" height="64" rx="8"/><text x="650" y="77" text-anchor="middle">Video Editor</text></g>
+          <g class="nd gate" id="g4"><rect x="237" y="170" width="260" height="80" rx="8"/><text x="367" y="194" text-anchor="middle">關卡 2：這個 app 可以嗎？</text><text class="s" x="367" y="216" text-anchor="middle">記得的就不問</text><text class="s" x="367" y="236" text-anchor="middle">沒記過 → 跳出對話框問你</text></g>
+          <g class="nd" id="g6"><rect x="452" y="272" width="122" height="44" rx="8"/><text x="513" y="299" text-anchor="middle">你按 Esc</text></g>
+          <g class="nd" style="opacity:.6"><rect x="14" y="190" width="200" height="64" rx="8" style="stroke-dasharray:2 4"/><text x="114" y="216" text-anchor="middle">Codex app</text><text class="s" x="114" y="238" text-anchor="middle">不用開著，不參與</text></g>
+          <circle id="gdot" cx="73" cy="26" r="8"/>
+        </svg>
+        <div class="ctl"><button id="gPrev">上一步</button><button id="gPlay">暫停</button><button id="gNext">下一步</button><span class="txt" id="gTxt"></span></div>
+      </div>
+      <ol class="calls" id="gsteps">
+        <li><b>Claude</b>決定點一下。</li>
+        <li><b>關卡 1：Claude Code</b>能不能用這個工具？第一次會跳出來問你（② 的第二個問題）。</li>
+        <li><b>plugin</b>通過後交給 plugin，plugin 再叫 helper（Codex app 附的程式）去做。</li>
+        <li><b>helper 問</b>第一次碰 Video Editor，helper 回頭問 plugin：可以嗎？</li>
+        <li><b>關卡 2：問你</b>你選過「一律允許」就不問；沒選過，就跳出對話框問你（② 的第一個問題；在 Claude 桌面 app 是一個 Windows 小視窗）。終端機、Claude、Codex 這類 app 一律拒絕。Claude 不能替你回答。</li>
+        <li><b>Video Editor</b>允許 → helper 真的點下去，回傳點擊後的截圖。</li>
+        <li><b>Esc</b>任何時候按 Esc，helper 立刻停。</li>
+      </ol>
+    </div>
+  </section>
+
+  <div class="nav"><button id="prev">← 上一段</button><button id="next">下一段 →</button></div>
+</main>
+
+<script>
+(function () {
+  // ---- board ----
+  const chips = [...document.querySelectorAll(".chip")];
+  const steps = [...document.querySelectorAll(".step")];
+  const all = document.getElementById("all");
+  let cur = 1;
+  function go(n) {
+    cur = Math.min(Math.max(n, 1), steps.length);
+    document.body.classList.remove("boarded-all");
+    all.setAttribute("aria-pressed", "false");
+    steps.forEach((s) => s.classList.toggle("on", Number(s.dataset.s) === cur));
+    chips.forEach((c) => c.classList.toggle("on", Number(c.dataset.s) === cur));
+    document.getElementById("prev").disabled = cur === 1;
+    document.getElementById("next").disabled = cur === steps.length;
+    if (cur === 1) chat.restart();
+    if (cur === 2) player.restart();
+    if (cur === 3) gates.restart();
+    try { history.replaceState(null, "", "#step-" + cur); } catch (e) {}
+  }
+  chips.forEach((c) => (c.onclick = () => go(Number(c.dataset.s))));
+  document.getElementById("prev").onclick = () => { go(cur - 1); scrollTo(0, 0); };
+  document.getElementById("next").onclick = () => { go(cur + 1); scrollTo(0, 0); };
+  all.onclick = () => {
+    const on = !document.body.classList.contains("boarded-all");
+    document.body.classList.toggle("boarded-all", on);
+    all.setAttribute("aria-pressed", String(on));
+    chips.forEach((c) => c.classList.remove("on"));
+    if (on) { chat.restart(); player.restart(); gates.restart(); } else go(cur);
+  };
+
+  // ---- copy buttons ----
+  document.querySelectorAll(".copy button").forEach((b) => {
+    b.onclick = async () => {
+      const text = b.parentElement.querySelector("pre").innerText;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (e) {
+        const t = document.createElement("textarea");
+        t.value = text; document.body.appendChild(t); t.select();
+        try { document.execCommand("copy"); } catch (e2) {}
+        t.remove();
+      }
+      b.textContent = "已複製"; b.classList.add("done");
+      setTimeout(() => { b.textContent = "複製"; b.classList.remove("done"); }, 1500);
+    };
+  });
+
+  // A looping stepper: highlights one item per tick and lets the reader step or pause.
+  function stepper(count, show, ms, ids) {
+    const playBtn = document.getElementById(ids.play);
+    let i = 0, playing = true, timer = null;
+    const render = () => { show(i); document.getElementById(ids.txt).textContent = `${i + 1} / ${count}`; };
+    function schedule() {
+      clearTimeout(timer);
+      if (playing) timer = setTimeout(() => { i = (i + 1) % count; render(); schedule(); }, ms(i));
+    }
+    document.getElementById(ids.next).onclick = () => { i = Math.min(i + 1, count - 1); render(); schedule(); };
+    document.getElementById(ids.prev).onclick = () => { i = Math.max(i - 1, 0); render(); schedule(); };
+    playBtn.onclick = () => { playing = !playing; playBtn.textContent = playing ? "暫停" : "播放"; schedule(); };
+    return { restart() { i = 0; render(); schedule(); } };
+  }
+
+  // ---- ① install chat, one reply at a time ----
+  const chat = (function () {
+    const lines = [...document.querySelectorAll("#chat .t")];
+    let timer = null;
+    function restart() {
+      clearTimeout(timer);
+      lines.forEach((l) => l.classList.remove("show"));
+      let i = 0;
+      const next = () => {
+        if (i < lines.length) { lines[i++].classList.add("show"); timer = setTimeout(next, i === 3 ? 1600 : 900); }
+        else timer = setTimeout(restart, 4000);
+      };
+      timer = setTimeout(next, 700);
+    }
+    return { restart };
+  })();
+
+  // ---- ② drawn walkthrough ----
+  const shots = [...document.querySelectorAll("#slides .shot")];
+  const calls = [...document.querySelectorAll("#calls li")];
+  const player = stepper(shots.length, (i) => {
+    shots.forEach((s, k) => s.classList.toggle("on", k === i));
+    calls.forEach((c, k) => c.classList.toggle("on", k === i));
+  }, (i) => (i === shots.length - 1 ? 4000 : 3000), { prev: "pPrev", next: "pNext", play: "pPlay", txt: "pTxt" });
+
+  // ---- ③ one click through the two permission gates ----
+  const stops = [["g0", 73, 26], ["g1", 217, 26], ["g2", 367, 26], ["g3", 513, 26], ["g4", 367, 158], ["g5", 650, 26], ["g6", 438, 294]];
+  const gsteps = [...document.querySelectorAll("#gsteps li")];
+  const dot = document.getElementById("gdot");
+  const gates = stepper(stops.length, (i) => {
+    stops.forEach(([id], k) => document.getElementById(id).classList.toggle("on", k === i || (i === 4 && id === "g2")));
+    gsteps.forEach((li, k) => li.classList.toggle("on", k === i));
+    dot.setAttribute("cx", stops[i][1]); dot.setAttribute("cy", stops[i][2]);
+  }, () => 2800, { prev: "gPrev", next: "gNext", play: "gPlay", txt: "gTxt" });
+
+  const fromHash = location.hash.match(/step-(\d+)/);
+  go(fromHash ? Number(fromHash[1]) : 1);
+})();
+</script>
+</body>
+</html>

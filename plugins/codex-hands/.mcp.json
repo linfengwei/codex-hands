@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "codex-hands": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server/launch.mjs"],
+      "env": { "CODEX_HANDS_DATA": "${CLAUDE_PLUGIN_DATA}" }
+    }
+  }
+}

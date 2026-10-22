@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>codex-hands promo</title>
+<meta name="viewport" content="width=1280">
+<!-- A 15-second, 1280x720 promo. Every motion is a CSS animation, so render.mjs can seek any frame with seek(ms).
+     All app UI here is drawn; it is not a real product. -->
+<style>
+:root {
+  --bg: #05070f; --glass: #0c1324e6; --glass-2: #111a30; --line: #1d2a48; --edge: #22d3ee66;
+  --text: #e6f1ff; --muted: #7b8bb2; --cyan: #22d3ee; --violet: #8b5cf6; --pink: #f472b6; --mint: #34d399;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); }
+body { display: grid; place-items: center; min-height: 100vh; }
+.stage { position: relative; width: 1280px; height: 720px; overflow: hidden; background: var(--bg); color: var(--text);
+  font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; }
+.mono { font-family: "Cascadia Code", "Cascadia Mono", Consolas, monospace; }
+.abs { position: absolute; }
+.scene { position: absolute; inset: 0; opacity: 0; }
+.grad { background: linear-gradient(90deg, var(--cyan), var(--violet) 60%, var(--pink)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* background: glow, perspective grid, scan lines, HUD */
+.glow { position: absolute; width: 760px; height: 760px; border-radius: 50%; filter: blur(60px); opacity: .28; }
+.glow.a { background: var(--violet); left: -300px; top: -380px; animation: driftA 15s linear 0s both; }
+.glow.b { background: var(--cyan); right: -320px; bottom: -420px; opacity: .2; animation: driftB 15s linear 0s both; }
+.floor { position: absolute; left: -50%; right: -50%; top: 55%; height: 900px; transform-origin: top; transform: perspective(420px) rotateX(62deg);
+  background-image: linear-gradient(#22d3ee2e 1px, transparent 1px), linear-gradient(90deg, #22d3ee2e 1px, transparent 1px);
+  background-size: 64px 64px; animation: floor 15s linear 0s both;
+  mask-image: linear-gradient(#000 0%, #000 40%, transparent 85%); -webkit-mask-image: linear-gradient(#000 0%, #000 40%, transparent 85%); }
+.horizon { position: absolute; left: 0; right: 0; top: 55%; height: 1px; background: linear-gradient(90deg, transparent, #22d3ee99, transparent); }
+.scan { position: absolute; inset: 0; background: repeating-linear-gradient(#ffffff06 0 1px, transparent 1px 3px); pointer-events: none; }
+.vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 55%, #000a 100%); }
+.hud { position: absolute; font-size: 12px; letter-spacing: 2px; color: var(--muted); }
+.hud.tl { left: 34px; top: 26px; } .hud.tr { right: 34px; top: 26px; text-align: right; }
+.hud .rec { color: var(--pink); }
+.corner { position: absolute; width: 22px; height: 22px; border: 2px solid var(--cyan); opacity: .7; }
+.corner.c1 { left: 16px; top: 16px; border-right: 0; border-bottom: 0; } .corner.c2 { right: 16px; top: 16px; border-left: 0; border-bottom: 0; }
+.corner.c3 { left: 16px; bottom: 16px; border-right: 0; border-top: 0; } .corner.c4 { right: 16px; bottom: 16px; border-left: 0; border-top: 0; }
+.progress { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: linear-gradient(90deg, var(--cyan), var(--violet), var(--pink));
+  transform-origin: left; animation: grow 15s linear 0s both; box-shadow: 0 0 12px var(--cyan); }
+
+/* scene timing */
+.s1 { animation: on 1ms linear 0s both, glitchOut 380ms ease-in 2250ms forwards; }
+.s2 { animation: inFade 250ms ease-out 2600ms both, zoomOut 350ms ease-in 4300ms forwards; }
+.s3 { animation: inFade 300ms ease-out 4650ms both, glitchOut 400ms ease-in 10050ms forwards; }
+.s4 { animation: inFade 300ms ease-out 10450ms both, glitchOut 350ms ease-in 12500ms forwards; }
+.s5 { animation: inFade 300ms ease-out 12850ms both; }
+
+/* words wipe in */
+.w { display: inline-block; animation: wipe 480ms cubic-bezier(.2, 1.3, .4, 1) both; }
+
+/* scene 1: hook */
+.hook { left: 0; right: 0; top: 236px; text-align: center; font-weight: 800; letter-spacing: -1.5px; }
+.hook .line { font-size: 66px; line-height: 1.25; text-shadow: 0 0 24px #22d3ee33; }
+.tag1 { left: 0; right: 0; top: 196px; text-align: center; font-size: 15px; letter-spacing: 4px; color: var(--cyan); animation: rise 400ms ease-out 0ms both; }
+.strike { position: relative; color: var(--muted); }
+.strike::after { content: ""; position: absolute; left: -4px; right: -4px; top: 54%; height: 6px; border-radius: 3px; background: var(--pink);
+  box-shadow: 0 0 14px var(--pink); transform-origin: left; animation: swipe 360ms ease-out 1800ms both; }
+
+/* scene 2: name */
+.meet { left: 0; right: 0; top: 206px; text-align: center; font-size: 16px; letter-spacing: 6px; color: var(--cyan); animation: rise 400ms ease-out 2700ms both; }
+.name { left: 0; right: 0; top: 242px; text-align: center; font-size: 108px; font-weight: 800; letter-spacing: -3px; filter: drop-shadow(0 0 22px #22d3ee55); }
+.name span { display: inline-block; animation: wipe 460ms cubic-bezier(.2, 1.5, .4, 1) both; }
+.tagline { left: 0; right: 0; top: 410px; text-align: center; font-size: 30px; color: var(--muted); animation: rise 450ms ease-out 3750ms both; }
+.tagline b { color: var(--text); font-weight: 600; }
+.plug { left: 560px; top: 500px; width: 160px; height: 60px; filter: drop-shadow(0 0 10px #22d3ee88); }
+.plug .l { animation: plugL 500ms cubic-bezier(.3, 1.4, .5, 1) 3300ms both; }
+.plug .r { animation: plugR 500ms cubic-bezier(.3, 1.4, .5, 1) 3300ms both; }
+.spark { left: 622px; top: 512px; width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--cyan); box-shadow: 0 0 18px var(--cyan); animation: ring 600ms ease-out 3780ms both; }
+
+/* scene 3: demo */
+.title3 { left: 60px; top: 58px; font-size: 42px; font-weight: 800; letter-spacing: -1px; }
+.title3 .w:nth-child(1) { animation-delay: 4750ms; } .title3 .w:nth-child(2) { animation-delay: 4830ms; }
+.title3 .w:nth-child(3) { animation-delay: 4910ms; } .title3 .w:nth-child(4) { animation-delay: 5100ms; }
+.title3 .w:nth-child(5) { animation-delay: 5180ms; } .title3 .w:nth-child(6) { animation-delay: 5260ms; }
+.title3 .w:nth-child(7) { animation-delay: 5340ms; }
+.panel { border-radius: 14px; background: var(--glass); border: 1px solid var(--edge); box-shadow: 0 0 0 1px #22d3ee14, 0 0 40px #22d3ee1f, 0 30px 80px #000a; }
+.chat { left: 60px; top: 150px; width: 400px; height: 410px; animation: slideR 500ms cubic-bezier(.2, 1.2, .4, 1) 4700ms both; }
+.bar { height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 16px; border-bottom: 1px solid var(--line); font-size: 13px; letter-spacing: 1px; color: var(--muted); }
+.bar i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); display: inline-block; }
+.bar i:first-child { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+.bar b { margin-left: 6px; color: var(--text); font-weight: 600; }
+.msg { margin: 18px 18px 0; padding: 14px 16px; border-radius: 10px; background: #070b17; border: 1px solid var(--line); font-size: 18px; line-height: 1.55; }
+.msg .t { display: block; overflow: hidden; white-space: nowrap; width: 0; }
+.msg .t1 { color: var(--cyan); animation: type1 500ms steps(20) 5050ms forwards; }
+.msg .t2 { animation: type2 520ms steps(21) 5550ms forwards; }
+.msg .t3 { animation: type3 450ms steps(18) 6070ms forwards; }
+.status { margin: 14px 22px 0; font-size: 17px; color: var(--muted); display: flex; gap: 10px; align-items: center; animation: rise 350ms ease-out both; }
+.status .dot { width: 9px; height: 9px; border-radius: 2px; background: var(--violet); box-shadow: 0 0 8px var(--violet); }
+.st1 { animation-delay: 6550ms; } .st2 { animation-delay: 7550ms; }
+.st3 { animation-delay: 9150ms; color: var(--mint); font-weight: 600; }
+.st3 .dot { background: var(--mint); box-shadow: 0 0 8px var(--mint); }
+.win { left: 500px; top: 150px; width: 710px; overflow: hidden; transform-origin: 30% 55%;
+  animation: slideL 550ms cubic-bezier(.2, 1.2, .4, 1) 4800ms both, push 2250ms ease-in-out 6450ms both; }
+.win .tb { height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 12px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line); }
+.win .tb .logo { width: 14px; height: 14px; border-radius: 4px; background: linear-gradient(135deg, var(--cyan), var(--violet)); }
+.win .tb span:last-child { margin-left: auto; letter-spacing: 10px; }
+
+/* the drawn video editor (710 x 385) */
+.app { position: relative; width: 710px; height: 385px; background: #080d1a; font-size: 11px; color: var(--muted); }
+.app .top { position: absolute; left: 0; right: 0; top: 0; height: 34px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 16px; padding: 0 14px 0 56px; }
+.app .top .exp { margin-left: auto; padding: 3px 12px; border-radius: 6px; border: 1px solid var(--cyan); color: var(--cyan); }
+.app .rail { position: absolute; left: 0; top: 34px; bottom: 0; width: 44px; border-right: 1px solid var(--line); }
+.app .rail i { position: absolute; left: 12px; width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid #34406a; }
+.app .rail i.on { border-color: var(--cyan); box-shadow: 0 0 8px #22d3ee88; }
+.app .media { position: absolute; left: 44px; top: 34px; width: 190px; bottom: 0; border-right: 1px solid var(--line); }
+.app .lbl { position: absolute; font-size: 10px; letter-spacing: 2px; color: var(--muted); }
+.thumb { position: absolute; width: 80px; height: 50px; border-radius: 6px; overflow: hidden; }
+.thumb b { position: absolute; right: 4px; bottom: 3px; padding: 0 4px; border-radius: 3px; background: #000a; color: #fff; font-weight: 600; font-size: 10px; }
+.th1 { background: linear-gradient(160deg, #1e3a8a, #0ea5e9); }
+.th2 { background: linear-gradient(180deg, #f472b6 0%, #fb923c 55%, #312e81 56%, #1e1b4b 100%); }
+.th3 { background: linear-gradient(135deg, #064e3b, #34d399); } .th4 { background: linear-gradient(135deg, #3b0764, #a855f7); }
+.th5 { background: linear-gradient(135deg, #0f172a, #475569); } .th6 { background: linear-gradient(135deg, #7c2d12, #f59e0b); }
+.th7 { background: linear-gradient(135deg, #134e4a, #22d3ee); } .th8 { background: linear-gradient(135deg, #1e1b4b, #6366f1); }
+.sel { position: absolute; width: 80px; height: 50px; border-radius: 6px; box-shadow: 0 0 0 2px var(--cyan), 0 0 14px var(--cyan); opacity: 0; animation: inFade 100ms linear 7620ms both; }
+.preview { position: absolute; left: 312px; top: 60px; width: 320px; height: 180px; border-radius: 6px; border: 1.5px dashed #34406a;
+  display: grid; place-items: center; letter-spacing: 2px; }
+.scene-clip { position: absolute; left: 312px; top: 60px; width: 320px; height: 180px; border-radius: 6px; overflow: hidden;
+  background: linear-gradient(180deg, #f472b6 0%, #fb923c 52%, #312e81 53%, #1e1b4b 100%); animation: inFade 300ms ease-out 8050ms both; }
+.scene-clip .sun { position: absolute; left: 130px; top: 58px; width: 60px; height: 60px; border-radius: 50%; background: #fde68a; box-shadow: 0 0 30px #fde68a; }
+.scene-clip .hill { position: absolute; left: 0; right: 0; bottom: 0; height: 80px; background: #0b1026; clip-path: polygon(0 60%, 18% 20%, 34% 55%, 52% 10%, 70% 50%, 86% 25%, 100% 55%, 100% 100%, 0 100%); }
+.ruler { position: absolute; left: 244px; right: 0; top: 268px; height: 18px; border-bottom: 1px solid var(--line); }
+.ruler span { position: absolute; top: 0; font-size: 10px; }
+.track { position: absolute; left: 244px; right: 10px; height: 36px; border-radius: 5px; background: #0d1427; }
+.clip { position: absolute; left: 256px; top: 294px; width: 180px; height: 36px; border-radius: 5px; overflow: hidden; transform-origin: left;
+  background: repeating-linear-gradient(90deg, #f472b6 0 44px, #fb923c 44px 45px); border: 1px solid #fde68a;
+  animation: growX 350ms cubic-bezier(.2, 1.2, .4, 1) 8050ms both; }
+.clip b { position: absolute; left: 6px; top: 3px; padding: 0 4px; border-radius: 3px; background: #000a; color: #fff; font-size: 10px; }
+.playhead { position: absolute; left: 256px; top: 266px; width: 2px; height: 115px; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+
+/* see, click, check effects */
+.sweep { position: absolute; left: 0; right: 0; top: 0; height: 60px; background: linear-gradient(transparent, #22d3ee40, #22d3eeaa 96%, transparent);
+  animation: sweep 650ms ease-in-out 6500ms both; }
+.det { position: absolute; border: 1.5px solid var(--cyan); border-radius: 4px; box-shadow: 0 0 10px #22d3ee66; animation: det 1300ms ease-out both; }
+.det span { position: absolute; left: -1px; top: -16px; padding: 0 5px; font-size: 10px; background: var(--cyan); color: #04121a; border-radius: 3px 3px 0 0; white-space: nowrap; }
+.d1 { left: 140px; top: 60px; width: 88px; height: 58px; animation-delay: 6700ms; }
+.d2 { left: 306px; top: 54px; width: 332px; height: 192px; animation-delay: 6800ms; }
+.d3 { left: 248px; top: 288px; width: 452px; height: 48px; animation-delay: 6900ms; }
+.cursor { position: absolute; width: 26px; height: 26px; left: 0; top: 0; filter: drop-shadow(0 0 6px var(--cyan)); animation: cur 950ms cubic-bezier(.6, 0, .3, 1) 6650ms both; }
+.ripple { position: absolute; left: 186px; top: 92px; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%;
+  border: 2px solid var(--cyan); box-shadow: 0 0 14px var(--cyan); animation: ring 520ms ease-out 7600ms both; }
+.ripple.r2 { animation-delay: 7720ms; }
+.hit { position: absolute; left: 251px; top: 289px; width: 190px; height: 46px; border-radius: 7px; border: 2px solid var(--mint); box-shadow: 0 0 14px var(--mint);
+  animation: hit 900ms ease-out 8450ms both; }
+.chips { left: 500px; top: 590px; display: flex; gap: 14px; }
+.chip { padding: 9px 22px; border-radius: 8px; border: 1px solid var(--line); background: var(--glass); font-size: 18px; letter-spacing: 1px; color: var(--muted); }
+.chip.c1 { animation: rise 350ms ease-out 5000ms both, lit 300ms ease-out 6550ms forwards; }
+.chip.c2 { animation: rise 350ms ease-out 5080ms both, lit 300ms ease-out 7600ms forwards; }
+.chip.c3 { animation: rise 350ms ease-out 5160ms both, lit 300ms ease-out 9150ms forwards; }
+.arrow { color: #34406a; font-size: 20px; align-self: center; }
+
+/* scene 4: control */
+.title4 { left: 0; right: 0; top: 96px; text-align: center; font-size: 56px; font-weight: 800; letter-spacing: -1px; }
+.title4 .w:nth-child(1) { animation-delay: 10500ms; } .title4 .w:nth-child(2) { animation-delay: 10580ms; }
+.title4 .w:nth-child(3) { animation-delay: 10660ms; } .title4 .w:nth-child(4) { animation-delay: 10740ms; }
+.dlg { left: 170px; top: 220px; width: 940px; animation: popBig 550ms cubic-bezier(.2, 1.4, .4, 1) 10750ms both; }
+.dlg .tb { height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 16px; font-size: 14px; letter-spacing: 1px; color: var(--muted); border-bottom: 1px solid var(--line); }
+.dlg .tb .logo { width: 14px; height: 14px; border-radius: 4px; background: linear-gradient(135deg, var(--cyan), var(--violet)); }
+.dlg .tb span:last-child { margin-left: auto; }
+.dlg .body { padding: 22px 26px 24px; font-size: 20px; }
+.dlg .body b { color: var(--cyan); }
+.dlg .btns { display: flex; gap: 12px; margin-top: 20px; }
+.dlg .btn { padding: 11px 18px; border-radius: 8px; border: 1px solid #34406a; background: #0a1022; font-size: 18px; white-space: nowrap; }
+.dlg .btn.pick { animation: press 400ms ease-out 11550ms forwards; }
+.cursor2 { left: 0; top: 0; width: 26px; height: 26px; filter: drop-shadow(0 0 6px var(--cyan)); animation: cur2 700ms cubic-bezier(.6, 0, .3, 1) 10950ms both; }
+.esc { left: 0; right: 0; top: 486px; display: flex; justify-content: center; align-items: center; gap: 18px; font-size: 28px;
+  animation: rise 400ms ease-out 11850ms both; }
+.key { padding: 8px 18px; border-radius: 10px; border: 2px solid var(--cyan); border-bottom-width: 6px; font-weight: 700; font-size: 26px; color: var(--cyan);
+  box-shadow: 0 0 16px #22d3ee55; }
+.refuse { left: 0; right: 0; top: 566px; text-align: center; font-size: 21px; color: var(--muted); animation: rise 400ms ease-out 12100ms both; }
+
+/* scene 5: end card */
+.logo5 { left: 0; right: 0; top: 196px; display: flex; justify-content: center; align-items: center; gap: 22px;
+  animation: popBig 600ms cubic-bezier(.2, 1.4, .4, 1) 12900ms both; filter: drop-shadow(0 0 24px #22d3ee55); }
+.logo5 .txt { font-size: 86px; font-weight: 800; letter-spacing: -3px; }
+.pill { left: 0; right: 0; top: 356px; display: flex; justify-content: center; animation: rise 450ms ease-out 13300ms both; }
+.pill div { padding: 16px 30px; border-radius: 12px; font-size: 30px; }
+.pill .c { color: var(--cyan); } .pill .k { color: var(--muted); }
+.gh { left: 0; right: 0; top: 566px; text-align: center; font-size: 22px; color: var(--muted); animation: rise 450ms ease-out 13700ms both; }
+.badges { left: 0; right: 0; top: 484px; display: flex; justify-content: center; gap: 14px; }
+.badge { padding: 9px 20px; border-radius: 8px; border: 1px solid var(--line); background: var(--glass); font-size: 20px; color: var(--muted); animation: rise 400ms ease-out both; }
+.badge b { color: var(--text); font-weight: 600; }
+.badge:nth-child(1) { animation-delay: 13650ms; } .badge:nth-child(2) { animation-delay: 13780ms; } .badge:nth-child(3) { animation-delay: 13910ms; }
+
+@keyframes on { from { opacity: 1; } to { opacity: 1; } }
+@keyframes inFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes glitchOut { 0% { opacity: 1; transform: none; filter: none; } 40% { transform: translateX(-14px) skewX(-8deg); filter: hue-rotate(60deg); }
+  100% { opacity: 0; transform: translateX(30px) skewX(10deg); filter: hue-rotate(120deg) blur(4px); } }
+@keyframes zoomOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(1.12); filter: blur(6px); } }
+@keyframes wipe { from { opacity: 0; clip-path: inset(0 100% 0 0); transform: translateX(-18px) skewX(-12deg); filter: blur(4px); }
+  to { opacity: 1; clip-path: inset(0 -10% 0 -10%); transform: none; filter: none; } }
+@keyframes popBig { from { opacity: 0; transform: scale(.7); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes rise { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+@keyframes swipe { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes slideR { from { opacity: 0; transform: translateX(-80px); } to { opacity: 1; transform: none; } }
+@keyframes slideL { from { opacity: 0; transform: translateX(80px); } to { opacity: 1; transform: none; } }
+@keyframes push { 0% { scale: 1; } 34% { scale: 1.15; } 64% { scale: 1.15; } 100% { scale: 1; } }
+@keyframes plugL { from { transform: translateX(-120px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes plugR { from { transform: translateX(120px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes ring { 0% { opacity: 0; transform: scale(.4); } 20% { opacity: 1; } 100% { opacity: 0; transform: scale(2.6); } }
+@keyframes sweep { from { transform: translateY(-60px); opacity: 1; } 90% { opacity: 1; } to { transform: translateY(385px); opacity: 0; } }
+@keyframes det { 0% { opacity: 0; transform: scale(1.15); } 15% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes type1 { to { width: 20ch; } }
+@keyframes type2 { to { width: 21ch; } }
+@keyframes type3 { to { width: 18ch; } }
+@keyframes cur { from { transform: translate(470px, 170px); } to { transform: translate(184px, 89px); } }
+@keyframes cur2 { from { transform: translate(1010px, 540px); } to { transform: translate(700px, 344px); } }
+@keyframes growX { from { transform: scaleX(0); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes hit { 0% { opacity: 0; transform: scale(1.3); } 30% { opacity: 1; transform: scale(1); } 100% { opacity: .9; transform: scale(1); } }
+@keyframes lit { to { color: #04121a; background: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 16px var(--cyan); } }
+@keyframes press { 0% { background: #0a1022; } 40% { transform: scale(.95); } 100% { background: #22d3ee26; border-color: var(--cyan); color: var(--cyan); box-shadow: 0 0 16px #22d3ee66; transform: none; } }
+@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes floor { from { background-position: 0 0; } to { background-position: 0 640px; } }
+@keyframes driftA { from { transform: translate(0, 0); } to { transform: translate(260px, 140px); } }
+@keyframes driftB { from { transform: translate(0, 0); } to { transform: translate(-240px, -120px); } }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="glow a"></div><div class="glow b"></div><div class="floor"></div><div class="horizon"></div>
+
+  <!-- 0.0 - 2.6 s: the hook -->
+  <div class="scene s1">
+    <div class="abs tag1 mono">// COMPUTER USE FOR CLAUDE CODE</div>
+    <div class="abs hook">
+      <div class="line">
+        <span class="w" style="animation-delay:100ms">Claude</span> <span class="w" style="animation-delay:180ms">Code</span>
+        <span class="w" style="animation-delay:260ms">on</span> <span class="w" style="animation-delay:340ms">a</span>
+        <span class="w grad" style="animation-delay:420ms">Team</span> <span class="w grad" style="animation-delay:500ms">plan,</span>
+      </div>
+      <div class="line">
+        <span class="w" style="animation-delay:950ms">but</span> <span class="w" style="animation-delay:1030ms">no</span>
+        <span class="w strike" style="animation-delay:1110ms">computer</span> <span class="w strike" style="animation-delay:1190ms">use</span>
+        <span class="w" style="animation-delay:1270ms">on</span> <span class="w grad" style="animation-delay:1350ms">Windows?</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2.6 - 4.6 s: the name -->
+  <div class="scene s2">
+    <div class="abs meet mono">ADD IT WITH ONE PLUGIN</div>
+    <div class="abs name" id="name"></div>
+    <div class="abs tagline">Claude <b>sees, clicks and types</b> in your Windows apps.</div>
+    <svg class="abs plug" viewBox="0 0 160 60" aria-hidden="true">
+      <g class="l"><rect x="6" y="27" width="34" height="6" rx="3" fill="#7b8bb2"/><rect x="36" y="10" width="34" height="40" rx="8" fill="#8b5cf6"/>
+        <rect x="70" y="18" width="10" height="6" rx="2" fill="#e6f1ff"/><rect x="70" y="36" width="10" height="6" rx="2" fill="#e6f1ff"/></g>
+      <g class="r"><rect x="82" y="10" width="40" height="40" rx="8" fill="#22d3ee"/><rect x="118" y="27" width="36" height="6" rx="3" fill="#7b8bb2"/></g>
+    </svg>
+    <div class="abs spark"></div>
+  </div>
+
+  <!-- 4.6 - 10.4 s: the demo, in a drawn video editor -->
+  <div class="scene s3">
+    <div class="abs title3"><span class="w">Type</span> <span class="w">a</span> <span class="w">task.</span> <span class="w grad">Claude</span>
+      <span class="w grad">does</span> <span class="w grad">the</span> <span class="w grad">clicks.</span></div>
+    <div class="abs panel chat">
+      <div class="bar"><i></i><i></i><i></i><b>Claude Code</b></div>
+      <div class="msg mono"><span class="t t1">/codex-hands:do</span><span class="t t2">add the 0:15 clip to</span><span class="t t3">the video timeline</span></div>
+      <div class="status st1"><span class="dot"></span>Looking at the window</div>
+      <div class="status st2"><span class="dot"></span>Clicking the 0:15 clip</div>
+      <div class="status st3"><span class="dot"></span>Done: clip is on the timeline</div>
+    </div>
+    <div class="abs panel win">
+      <div class="tb"><span class="logo"></span>Video Editor<span>– ▢ ✕</span></div>
+      <div class="app">
+        <div class="top"><span>File</span><span>Edit</span><span>View</span><span class="exp">Export</span></div>
+        <div class="rail"><i class="on" style="top:14px"></i><i style="top:52px"></i><i style="top:90px"></i><i style="top:128px"></i><i style="top:166px"></i></div>
+        <div class="lbl mono" style="left:56px;top:44px">RECENT</div>
+        <div class="thumb th1" style="left:56px;top:64px"><b>0:32</b></div>
+        <div class="thumb th2" style="left:144px;top:64px"><b>0:15</b></div>
+        <div class="sel" style="left:144px;top:64px"></div>
+        <div class="thumb th3" style="left:56px;top:122px"><b>0:21</b></div><div class="thumb th4" style="left:144px;top:122px"><b>0:08</b></div>
+        <div class="thumb th5" style="left:56px;top:180px"><b>0:19</b></div><div class="thumb th6" style="left:144px;top:180px"><b>0:20</b></div>
+        <div class="thumb th7" style="left:56px;top:238px"><b>0:10</b></div><div class="thumb th8" style="left:144px;top:238px"><b>0:07</b></div>
+        <div class="thumb th3" style="left:56px;top:296px"><b>0:12</b></div><div class="thumb th1" style="left:144px;top:296px"><b>0:26</b></div>
+        <div class="lbl mono" style="left:252px;top:44px">PREVIEW</div>
+        <div class="preview mono">DROP A CLIP HERE</div>
+        <div class="scene-clip"><div class="sun"></div><div class="hill"></div></div>
+        <div class="ruler mono"><span style="left:12px">0:00</span><span style="left:72px">0:05</span><span style="left:132px">0:10</span><span style="left:192px">0:15</span>
+          <span style="left:252px">0:20</span><span style="left:312px">0:25</span><span style="left:372px">0:30</span><span style="left:432px">0:35</span></div>
+        <div class="track" style="top:294px"></div><div class="track" style="top:338px"></div>
+        <div class="clip"><b>0:15</b></div>
+        <div class="playhead"></div>
+        <div class="sweep"></div>
+        <div class="det d1"><span>clip 0:15</span></div>
+        <div class="det d2"><span>preview</span></div>
+        <div class="det d3"><span>timeline</span></div>
+        <div class="ripple"></div><div class="ripple r2"></div>
+        <div class="hit"></div>
+        <svg class="cursor" viewBox="0 0 26 26" aria-hidden="true"><path d="M3 2 L3 21 L8 16.5 L11.5 24 L15 22.5 L11.5 15 L18 15 Z" fill="#e6f1ff" stroke="#05070f" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+    <div class="abs chips mono"><div class="chip c1">SEE</div><div class="arrow">→</div><div class="chip c2">CLICK</div><div class="arrow">→</div><div class="chip c3">CHECK</div></div>
+  </div>
+
+  <!-- 10.4 - 12.8 s: the user stays in control -->
+  <div class="scene s4">
+    <div class="abs title4"><span class="w">You</span> <span class="w">stay</span> <span class="w">in</span> <span class="w grad">control.</span></div>
+    <div class="abs panel dlg">
+      <div class="tb"><span class="logo"></span>codex-hands<span>✕</span></div>
+      <div class="body">codex-hands wants to use <b>videoeditor.exe</b> (see the screen, click, type). Allow it?
+        <div class="btns"><div class="btn">Always allow (remember, don&#39;t ask again)</div><div class="btn pick">Allow until Claude Code closes</div><div class="btn">Deny</div></div>
+      </div>
+    </div>
+    <svg class="abs cursor2" viewBox="0 0 26 26" aria-hidden="true"><path d="M3 2 L3 21 L8 16.5 L11.5 24 L15 22.5 L11.5 15 L18 15 Z" fill="#e6f1ff" stroke="#05070f" stroke-width="1.6" stroke-linejoin="round"/></svg>
+    <div class="abs esc"><span class="key mono">Esc</span><span>stops it at any time.</span></div>
+    <div class="abs refuse">Every new app asks you first. Terminals are always refused.</div>
+  </div>
+
+  <!-- 12.8 - 15 s: end card -->
+  <div class="scene s5">
+    <div class="abs logo5">
+      <svg width="120" height="46" viewBox="0 0 160 60" aria-hidden="true">
+        <rect x="6" y="27" width="34" height="6" rx="3" fill="#7b8bb2"/><rect x="36" y="10" width="34" height="40" rx="8" fill="#8b5cf6"/>
+        <rect x="70" y="18" width="10" height="6" rx="2" fill="#e6f1ff"/><rect x="70" y="36" width="10" height="6" rx="2" fill="#e6f1ff"/>
+        <rect x="82" y="10" width="40" height="40" rx="8" fill="#22d3ee"/><rect x="118" y="27" width="36" height="6" rx="3" fill="#7b8bb2"/>
+      </svg>
+      <span class="txt">codex-<span class="grad">hands</span></span>
+    </div>
+    <div class="abs pill"><div class="panel mono"><span class="c">/codex-hands:do</span> <span class="k">&lt;your task&gt;</span></div></div>
+    <div class="abs badges">
+      <div class="badge"><b>Claude Code</b> plugin</div>
+      <div class="badge"><b>Windows 11</b></div>
+      <div class="badge">Runs on the installed <b>Codex app</b></div>
+    </div>
+    <div class="abs gh mono">github.com/linfengwei/codex-hands</div>
+  </div>
+
+  <div class="scan"></div><div class="vignette"></div>
+  <div class="corner c1"></div><div class="corner c2"></div><div class="corner c3"></div><div class="corner c4"></div>
+  <div class="hud tl mono">CODEX-HANDS // WINDOWS</div>
+  <div class="hud tr mono"><span class="rec">●</span> <span id="tc">00:00:00</span></div>
+  <div class="progress"></div>
+</div>
+<script>
+  // Letters of the name wipe in one after another; "hands" gets the gradient.
+  const name = document.getElementById("name");
+  [..."codex-hands"].forEach((ch, i) => {
+    const s = document.createElement("span");
+    s.textContent = ch;
+    s.style.animationDelay = `${2780 + i * 28}ms`;
+    if (i >= 6) s.className = "grad";
+    name.appendChild(s);
+  });
+  // Timecode in the corner: seconds and frames at 30 fps.
+  const tc = document.getElementById("tc");
+  const showTime = (ms) => {
+    const f = Math.floor((ms / 1000) * 30);
+    tc.textContent = `00:${String(Math.floor(f / 30)).padStart(2, "0")}:${String(f % 30).padStart(2, "0")}`;
+  };
+  // render.mjs calls seek(ms) for each frame. In a normal browser the video plays and loops.
+  window.seek = (ms) => {
+    for (const a of document.getAnimations()) {
+      a.pause();
+      a.currentTime = ms;
+    }
+    showTime(ms);
+  };
+  if (!location.search.includes("render")) {
+    let start = performance.now();
+    const tick = (now) => {
+      if (now - start > 16500) {
+        start = now;
+        document.getAnimations().forEach((a) => { a.currentTime = 0; a.play(); });
+      }
+      showTime(Math.min(now - start, 15000));
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+</script>
+</body>
+</html>

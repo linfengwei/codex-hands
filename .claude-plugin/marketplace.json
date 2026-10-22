@@ -1,0 +1,12 @@
+{
+  "name": "codex-hands",
+  "owner": { "name": "linfengwei", "url": "https://github.com/linfengwei" },
+  "description": "Codex's computer use, lent to Claude Code on Windows.",
+  "plugins": [
+    {
+      "name": "codex-hands",
+      "source": "./plugins/codex-hands",
+      "description": "Codex's computer use, lent to Claude Code on Windows: for Claude Code users (for example on a Team plan) who have no computer use there."
+    }
+  ]
+}

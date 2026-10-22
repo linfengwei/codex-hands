@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>How to Use codex-hands</title>
+<style>
+:root {
+  --bg: #f7f6f2; --surface: #ffffff; --text: #1f1e1b; --muted: #6b6a64; --line: #dcdad2; --hl: #eeedfe;
+  --accent: #534ab7; --ok: #3b6d11; --ok-bg: #eaf3de; --warn: #854f0b; --warn-bg: #faeeda;
+  --code-bg: #f1efe8; --term: #1e1e1e; --term-text: #e6e6e6; --mark: #e24b4a;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1c1c1a; --surface: #262624; --text: #ecebe5; --muted: #a3a29a; --line: #3d3d39; --hl: #2e2a5c;
+    --accent: #afa9ec; --ok: #97c459; --ok-bg: #22330f; --warn: #ef9f27; --warn-bg: #3d2a0a;
+    --code-bg: #30302d; --term: #111110;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1c1c1a; --surface: #262624; --text: #ecebe5; --muted: #a3a29a; --line: #3d3d39; --hl: #2e2a5c;
+  --accent: #afa9ec; --ok: #97c459; --ok-bg: #22330f; --warn: #ef9f27; --warn-bg: #3d2a0a;
+  --code-bg: #30302d; --term: #111110;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.7 "Segoe UI", "Microsoft JhengHei", sans-serif; }
+main { width: 1200px; margin: 0 auto; padding: 28px 0 60px; }
+h1 { font-size: 26px; font-weight: 600; margin: 0 0 2px; }
+h3 { font-size: 16px; font-weight: 600; margin: 22px 0 8px; }
+.lead { color: var(--muted); margin: 0; }
+code { font-family: var(--mono); font-size: 13px; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+
+/* board: three sections, one shown at a time */
+.board { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); padding: 10px 0; margin: 14px 0 18px; display: flex; gap: 10px; align-items: stretch; }
+.chip { flex: 1; text-align: left; padding: 8px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.chip .n { font-weight: 600; color: var(--accent); margin-right: 6px; font-size: 18px; }
+.chip b { font-size: 16px; font-weight: 600; }
+.chip .m { display: block; color: var(--muted); font-size: 12.5px; }
+.chip.on { border: 2px solid var(--accent); background: var(--hl); padding: 7px 13px; }
+.all { padding: 4px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+.all[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+
+.step { display: none; }
+.step.on, .boarded-all .step { display: block; }
+.boarded-all .step { border-bottom: 1px solid var(--line); padding-bottom: 26px; margin-bottom: 26px; }
+.step h2 { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
+.step h2 .n { color: var(--accent); margin-right: 8px; }
+.step .why { color: var(--muted); margin: 0 0 14px; }
+.cols { display: grid; grid-template-columns: 560px 1fr; gap: 26px; align-items: start; }
+.do { margin: 0; padding-left: 22px; }
+.do li { margin-bottom: 12px; }
+.hint { font-size: 13px; color: var(--muted); }
+.tag { display: inline-block; font-size: 11.5px; padding: 0 8px; border-radius: 999px; margin-left: 6px; vertical-align: 1px; background: var(--warn-bg); color: var(--warn); }
+
+/* paste blocks */
+.copy { position: relative; margin: 6px 0 4px; }
+.copy .lbl { font-size: 12px; color: var(--muted); }
+.copy pre { margin: 0; padding: 10px 76px 10px 12px; background: var(--term); color: var(--term-text); border-radius: 8px; font: 13.5px/1.65 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.copy button { position: absolute; right: 8px; top: 26px; padding: 2px 10px; font: 12px "Segoe UI", "Microsoft JhengHei", sans-serif; border: 1px solid #555; border-radius: 6px; background: #2c2c2a; color: #ddd; cursor: pointer; }
+.copy button.done { border-color: #97c459; color: #97c459; }
+td .copy { margin: 0; }
+td .copy pre { font-size: 12.5px; padding-top: 7px; padding-bottom: 7px; }
+td .copy button { top: 5px; }
+
+/* ① what happens after pasting the install request */
+.chat { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 12px; display: flex; flex-direction: column; gap: 8px; min-height: 380px; }
+.bub { font-size: 13.5px; padding: 7px 11px; border-radius: 10px; max-width: 92%; transition: opacity .35s, transform .35s; }
+.bub.me { align-self: flex-end; background: var(--hl); }
+.bub.cl { align-self: flex-start; background: var(--code-bg); }
+.bub.ask { align-self: flex-start; background: var(--warn-bg); color: var(--warn); }
+.pick { display: inline-block; margin-left: 6px; padding: 0 8px; border: 2px solid var(--ok); border-radius: 6px; color: var(--ok); background: var(--surface); }
+.bub.end { align-self: flex-start; background: var(--ok-bg); color: var(--ok); font-weight: 600; }
+.bub.t:not(.show) { opacity: 0; transform: translateY(6px); }
+.ok { color: var(--ok); font-weight: 600; }
+
+/* ② drawn walkthrough with click markers */
+.player { display: grid; grid-template-columns: 1fr 330px; gap: 18px; align-items: start; }
+.slides { position: relative; aspect-ratio: 852 / 462; }
+.shot { position: absolute; inset: 0; opacity: 0; transition: opacity .45s; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff; }
+.shot.on { opacity: 1; }
+.shot svg { display: block; width: 100%; height: auto; }
+.shot .mk { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; border: 3px solid var(--mark); animation: pulse 1.2s ease-out infinite; }
+.shot .box { position: absolute; border: 3px solid var(--mark); border-radius: 6px; }
+.shot .lab { position: absolute; transform: translate(-50%, -150%); background: var(--mark); color: #fff; font-size: 12px; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.shot .lab.r { transform: translate(26px, -50%); }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(226,75,74,.55); } 100% { box-shadow: 0 0 0 16px rgba(226,75,74,0); } }
+.calls { list-style: none; margin: 0; padding: 0; font-size: 13.5px; }
+.calls li { border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; margin-bottom: 7px; background: var(--surface); opacity: .45; transition: opacity .3s, border-color .3s; }
+.calls li.on { opacity: 1; border-color: var(--accent); }
+.calls li b { font-weight: 600; color: var(--accent); display: block; }
+.ctl { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.ctl button, .nav button { font: inherit; font-size: 13px; padding: 5px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); cursor: pointer; }
+.ctl .txt { font-size: 14px; }
+.perm { border: 1px solid var(--warn); border-radius: 10px; padding: 12px 14px; background: var(--warn-bg); font-size: 14px; }
+.perm .opts { display: flex; gap: 8px; margin-top: 8px; }
+.perm .opts span { padding: 2px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); }
+.perm .opts .pick { margin: 0; border: 2px solid var(--ok); }
+.real-dialog { display: block; width: 100%; max-width: 633px; border: 1px solid var(--line); border-radius: 8px; }
+.esc { display: flex; gap: 14px; align-items: center; margin-top: 16px; font-size: 14.5px; }
+.key { display: inline-block; min-width: 54px; text-align: center; padding: 8px 10px; border: 1px solid var(--line); border-bottom-width: 4px; border-radius: 8px; background: var(--surface); font-weight: 600; animation: press 1.6s infinite; }
+@keyframes press { 0%, 60%, 100% { transform: none; } 70% { transform: translateY(3px); border-bottom-width: 1px; } }
+
+/* ③ problems and the two permission gates */
+table { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--surface); border: 1px solid var(--line); }
+th, td { text-align: left; padding: 9px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+th { background: var(--code-bg); font-weight: 600; border-top: none; }
+.gates { display: grid; grid-template-columns: 720px 1fr; gap: 18px; align-items: start; }
+.gates svg { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.gates .nd rect { fill: var(--bg); stroke: var(--line); stroke-width: 1.5; transition: fill .3s, stroke .3s; }
+.gates .nd.gate rect { stroke: var(--accent); stroke-dasharray: 5 3; }
+.gates .nd.on rect { fill: var(--hl); stroke: var(--accent); stroke-dasharray: none; stroke-width: 2.5; }
+.gates .nd text { fill: var(--text); font: 600 15px "Segoe UI", "Microsoft JhengHei", sans-serif; }
+.gates .nd text.s { fill: var(--muted); font-weight: 400; font-size: 12.5px; }
+.gates .ln { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+.gates #gdot { fill: #ef9f27; transition: cx .6s, cy .6s; }
+
+.nav { display: flex; justify-content: space-between; margin-top: 24px; }
+.boarded-all .nav { display: none; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <a href="how-to-use.zh-TW.html" lang="zh-Hant" style="float:right;margin-top:6px;font-size:13px;color:var(--accent)">中文</a>
+  <h1>How to use codex-hands</h1>
+  <p class="lead">Let Claude Code operate Windows apps for you: look at the screen, click and type. On a Claude Code Team plan, Claude Code can't do this on Windows by itself; this plugin adds it. You don't type any commands: just copy the text below and paste it into Claude Code.</p>
+
+  <div class="board">
+    <button class="chip" data-s="1"><span class="n">①</span><b>Install</b><span class="m">Paste one message; Claude Code installs it</span></button>
+    <button class="chip" data-s="2"><span class="n">②</span><b>Use</b><span class="m">/codex-hands:do plus what to do</span></button>
+    <button class="chip" data-s="3"><span class="n">③</span><b>Problems</b><span class="m">What you see, what to paste</span></button>
+    <button class="all" id="all" aria-pressed="false">Show all</button>
+  </div>
+
+  <!-- ① -->
+  <section class="step" data-s="1">
+    <h2><span class="n">①</span>Install</h2>
+    <p class="why">You do this only once. Your computer needs the Codex app first ("Codex" by OpenAI, from the Microsoft Store). If it's missing, Claude will tell you.</p>
+    <div class="cols">
+      <div>
+        <ol class="do">
+          <li>Open Claude Code (the Code tab in the Claude desktop app, or <code>claude</code> in a terminal).</li>
+          <li>Copy this message, paste it into Claude Code and send it:
+            <div class="copy"><span class="lbl">Paste into Claude Code</span><pre>Please install the codex-hands plugin so you can operate the Windows apps on my computer. The plugin is on GitHub: https://github.com/linfengwei/codex-hands. Do these steps in order and tell me the result of each one. If a step fails, stop and tell me what to do:
+1. Check that the Codex app is installed: in PowerShell, run Get-AppxPackage -Name OpenAI.Codex. If it isn't, ask me to install "Codex" (by OpenAI) from the Microsoft Store.
+2. Check that Node is installed: run node --version.
+3. Install the plugin: run claude plugin marketplace add linfengwei/codex-hands, then run claude plugin install codex-hands@codex-hands.
+4. Test that it starts: in the folder Claude Code downloaded it to (%USERPROFILE%\.claude\plugins\marketplaces\codex-hands), run node test/smoke.mjs. The output must have the tools: line.
+When you're done, remind me to close Claude Code and open it again.</pre><button>Copy</button></div>
+            <span class="hint">Claude Code downloads the plugin from GitHub by itself; you don't need to download anything. You don't need to choose in advance which apps it may operate; Claude Code asks you the first time it needs one.</span>
+          </li>
+          <li>When Claude Code asks "Can I run this command?", choose Allow.</li>
+          <li>When it says it's done, <b>close Claude Code and open it again</b>. Then you're ready to use it.</li>
+        </ol>
+      </div>
+      <div>
+        <div class="hint">What happens after you paste it<span class="tag">Illustration</span></div>
+        <div class="chat" id="chat">
+          <div class="bub me">Please install the codex-hands plugin so you can operate the Windows apps on my computer…</div>
+          <div class="bub cl t"><span class="ok">✓</span> 1. The Codex app is installed (OpenAI.Codex 26.1016.6573.0)</div>
+          <div class="bub cl t"><span class="ok">✓</span> 2. Node v22.20.0</div>
+          <div class="bub ask t">Claude Code: Can I run <code>claude plugin install codex-hands@codex-hands</code>?<span class="pick">Allow</span></div>
+          <div class="bub cl t"><span class="ok">✓</span> 3. The plugin is installed</div>
+          <div class="bub cl t"><span class="ok">✓</span> 4. Test start worked; all 14 tools are there</div>
+          <div class="bub end t">Done. Close Claude Code and open it again. After that, type <code>/codex-hands:do</code> followed by what you want done.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ② -->
+  <section class="step" data-s="2">
+    <h2><span class="n">②</span>Use</h2>
+    <p class="why">In Claude Code, type <code>/codex-hands:do</code> and then say in plain words which app and what you want done. Claude first takes a screenshot to see the screen, does one action at a time, and takes a new screenshot after each action to check. You can also just ask without the slash command, but then Claude may not always use this plugin.</p>
+    <div class="cols">
+      <div>
+        <div class="copy"><span class="lbl">Paste into Claude Code: just look</span><pre>/codex-hands:do Take a screenshot of Video Editor as it is now, show it to me, and tell me which page it's on</pre><button>Copy</button></div>
+        <div class="copy"><span class="lbl">Paste into Claude Code: get something done</span><pre>/codex-hands:do In Video Editor, add the second video under "Recently used" to the timeline, then show me a screenshot</pre><button>Copy</button></div>
+        <div class="copy"><span class="lbl">Paste into Claude Code: check something</span><pre>/codex-hands:do Check whether Video Editor's "Export" button can be clicked right now. Don't click it</pre><button>Copy</button></div>
+      </div>
+      <div>
+        <div class="hint">The first time it uses an app, you're asked. In <code>claude</code> in a terminal, Claude Code shows its own dialog. It is in English unless Windows is set to Chinese:</div>
+        <div class="perm">codex-hands wants to use <b>videoeditor.exe</b> (see the screen, click, type). Allow it?<span class="tag">Illustration</span>
+          <div class="opts"><span class="pick">Always allow (remember, don't ask again)</span><span>Allow until Claude Code closes</span><span>Deny</span></div>
+        </div>
+        <div class="hint" style="margin:10px 0 4px">In the Claude desktop app, Claude Code can't show that dialog, so a small Windows window titled "codex-hands" opens instead, with the same three choices (real screenshot):</div>
+        <img class="real-dialog" src="img/allow-dialog.png" alt="The codex-hands permission window with three buttons: Always allow (remember, don't ask again), Allow until Claude Code closes, Deny">
+        <div class="hint" style="margin:6px 0 12px">Only you can answer; Claude can't choose for you. If you don't answer within 3 minutes, it counts as not allowed. Risky apps such as terminals are always denied, without asking.</div>
+        <div class="hint">The first time it uses each tool, Claude Code also asks:</div>
+        <div class="perm">Claude wants to use <b>click</b> from <b>codex-hands</b>. Allow it?<span class="tag">Illustration</span>
+          <div class="opts"><span>Yes</span><span class="pick">Yes, and don't ask again</span><span>No</span></div>
+        </div>
+        <div class="esc"><span class="key">Esc</span><span>While it works, press Esc at any time and it stops right away. It won't click or type anything more. To go on, just tell it again.</span></div>
+      </div>
+    </div>
+
+    <h3>What it looks like while it works (illustration)</h3>
+    <div class="player">
+      <div>
+        <div class="slides" id="slides">
+          <div class="shot"><svg viewBox="0 0 852 462" role="img" aria-label="Home page" font-family="Segoe UI, Microsoft JhengHei UI, sans-serif"><defs><linearGradient id="d0g0" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#1e3a8a"/></linearGradient><linearGradient id="d0g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fb923c"/><stop offset="1" stop-color="#7c3aed"/></linearGradient><linearGradient id="d0g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a3e635"/><stop offset="1" stop-color="#166534"/></linearGradient><linearGradient id="d0g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f472b6"/><stop offset="1" stop-color="#1e1b4b"/></linearGradient><linearGradient id="d0g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#60a5fa"/><stop offset="1" stop-color="#0f172a"/></linearGradient><linearGradient id="d0g5" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#facc15"/><stop offset="1" stop-color="#9a3412"/></linearGradient></defs><rect width="852" height="462" fill="#ffffff"/><rect width="852" height="30" fill="#f1f1f4"/>
+<rect x="12" y="9" width="12" height="12" rx="3" fill="#6d5df6"/><text x="32" y="20" font-size="12" fill="#333">Video Editor</text>
+<text x="760" y="20" font-size="12" fill="#777">—</text><rect x="792" y="11" width="9" height="9" fill="none" stroke="#777"/><text x="826" y="20" font-size="13" fill="#777">✕</text><rect x="0" y="30" width="150" height="432" fill="#f7f7f9"/><line x1="150" y1="30" x2="150" y2="462" stroke="#e3e3e8"/><rect x="8" y="47" width="134" height="28" rx="6" fill="#e9e6ff"/><rect x="20" y="56" width="12" height="12" rx="3" fill="#6d5df6"/><text x="42" y="66" font-size="12" fill="#3d2fc4">Home</text><rect x="20" y="90" width="12" height="12" rx="3" fill="#b9b9c6"/><text x="42" y="100" font-size="12" fill="#444">Video tools</text><rect x="20" y="124" width="12" height="12" rx="3" fill="#b9b9c6"/><text x="42" y="134" font-size="12" fill="#444">Photo tools</text><rect x="20" y="158" width="12" height="12" rx="3" fill="#b9b9c6"/><text x="42" y="168" font-size="12" fill="#444">My projects</text><rect x="176" y="50" width="650" height="140" rx="10" fill="url(#d0g4)"/>
+<text x="268" y="108" font-size="26" font-weight="600" fill="#fff">Welcome back</text><text x="268" y="136" font-size="13" fill="#dbe7ff">Continue a recent project or start a new one.</text>
+<text x="176" y="224" font-size="13" font-weight="600" fill="#333">Recent projects</text><rect x="176" y="238" width="206" height="150" rx="8" fill="#fff" stroke="#e3e3e8"/><rect x="184" y="246" width="190" height="104" rx="5" fill="url(#d0g2)"/><rect x="184" y="360" width="120" height="8" rx="4" fill="#d6d6de"/><rect x="184" y="374" width="70" height="6" rx="3" fill="#e6e6ec"/><rect x="398" y="238" width="206" height="150" rx="8" fill="#fff" stroke="#e3e3e8"/><rect x="406" y="246" width="190" height="104" rx="5" fill="url(#d0g3)"/><rect x="406" y="360" width="120" height="8" rx="4" fill="#d6d6de"/><rect x="406" y="374" width="70" height="6" rx="3" fill="#e6e6ec"/><rect x="620" y="238" width="206" height="150" rx="8" fill="#fff" stroke="#e3e3e8"/><rect x="628" y="246" width="190" height="104" rx="5" fill="url(#d0g4)"/><rect x="628" y="360" width="120" height="8" rx="4" fill="#d6d6de"/><rect x="628" y="374" width="70" height="6" rx="3" fill="#e6e6ec"/></svg><div class="mk" style="left:7.0%;top:20.8%"></div><div class="lab r" style="left:16.4%;top:20.8%">Video tools</div></div>
+          <div class="shot"><svg viewBox="0 0 852 462" role="img" aria-label="Video tools page" font-family="Segoe UI, Microsoft JhengHei UI, sans-serif"><defs><linearGradient id="d1g0" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#1e3a8a"/></linearGradient><linearGradient id="d1g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fb923c"/><stop offset="1" stop-color="#7c3aed"/></linearGradient><linearGradient id="d1g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a3e635"/><stop offset="1" stop-color="#166534"/></linearGradient><linearGradient id="d1g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f472b6"/><stop offset="1" stop-color="#1e1b4b"/></linearGradient><linearGradient id="d1g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#60a5fa"/><stop offset="1" stop-color="#0f172a"/></linearGradient><linearGradient id="d1g5" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#facc15"/><stop offset="1" stop-color="#9a3412"/></linearGradient></defs><rect width="852" height="462" fill="#ffffff"/><rect width="852" height="30" fill="#f1f1f4"/>
+<rect x="12" y="9" width="12" height="12" rx="3" fill="#6d5df6"/><text x="32" y="20" font-size="12" fill="#333">Video Editor</text>
+<text x="760" y="20" font-size="12" fill="#777">—</text><rect x="792" y="11" width="9" height="9" fill="none" stroke="#777"/><text x="826" y="20" font-size="13" fill="#777">✕</text><rect x="0" y="30" width="150" height="432" fill="#f7f7f9"/><line x1="150" y1="30" x2="150" y2="462" stroke="#e3e3e8"/><rect x="20" y="56" width="12" height="12" rx="3" fill="#b9b9c6"/><text x="42" y="66" font-size="12" fill="#444">Home</text><rect x="8" y="81" width="134" height="28" rx="6" fill="#e9e6ff"/><rect x="20" y="90" width="12" height="12" rx="3" fill="#6d5df6"/><text x="42" y="100" font-size="12" fill="#3d2fc4">Video tools</text><rect x="20" y="124" width="12" height="12" rx="3" fill="#b9b9c6"/><text x="42" y="134" font-size="12" fill="#444">Photo tools</text><rect x="20" y="158" width="12" height="12" rx="3" fill="#b9b9c6"/><text x="42" y="168" font-size="12" fill="#444">My projects</text><text x="176" y="60" font-size="16" font-weight="600" fill="#222">Video tools</text><rect x="176" y="76" width="206" height="134" rx="10" fill="#fff" stroke="#e3e3e8"/><rect x="192" y="92" width="44" height="44" rx="10" fill="url(#d1g0)"/><text x="192" y="168" font-size="14" font-weight="600" fill="#222">Video Editor</text><rect x="192" y="180" width="140" height="7" rx="3.5" fill="#e6e6ec"/><rect x="398" y="76" width="206" height="134" rx="10" fill="#fff" stroke="#e3e3e8"/><rect x="414" y="92" width="44" height="44" rx="10" fill="url(#d1g1)"/><text x="414" y="168" font-size="14" font-weight="600" fill="#222">Trim video</text><rect x="414" y="180" width="140" height="7" rx="3.5" fill="#e6e6ec"/><rect x="620" y="76" width="206" height="134" rx="10" fill="#fff" stroke="#e3e3e8"/><rect x="636" y="92" width="44" height="44" rx="10" fill="url(#d1g2)"/><text x="636" y="168" font-size="14" font-weight="600" fill="#222">Convert</text><rect x="636" y="180" width="140" height="7" rx="3.5" fill="#e6e6ec"/><rect x="176" y="226" width="206" height="134" rx="10" fill="#fff" stroke="#e3e3e8"/><rect x="192" y="242" width="44" height="44" rx="10" fill="url(#d1g3)"/><text x="192" y="318" font-size="14" font-weight="600" fill="#222">Add subtitles</text><rect x="192" y="330" width="140" height="7" rx="3.5" fill="#e6e6ec"/><rect x="398" y="226" width="206" height="134" rx="10" fill="#fff" stroke="#e3e3e8"/><rect x="414" y="242" width="44" height="44" rx="10" fill="url(#d1g4)"/><text x="414" y="318" font-size="14" font-weight="600" fill="#222">Adjust color</text><rect x="414" y="330" width="140" height="7" rx="3.5" fill="#e6e6ec"/><rect x="620" y="226" width="206" height="134" rx="10" fill="#fff" stroke="#e3e3e8"/><rect x="636" y="242" width="44" height="44" rx="10" fill="url(#d1g5)"/><text x="636" y="318" font-size="14" font-weight="600" fill="#222">Record screen</text><rect x="636" y="330" width="140" height="7" rx="3.5" fill="#e6e6ec"/></svg><div class="mk" style="left:32.7%;top:31.0%"></div><div class="lab" style="left:32.7%;top:31.0%">Video Editor</div></div>
+          <div class="shot"><svg viewBox="0 0 852 462" role="img" aria-label="Empty video editor" font-family="Segoe UI, Microsoft JhengHei UI, sans-serif"><defs><linearGradient id="d2g0" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#1e3a8a"/></linearGradient><linearGradient id="d2g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fb923c"/><stop offset="1" stop-color="#7c3aed"/></linearGradient><linearGradient id="d2g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a3e635"/><stop offset="1" stop-color="#166534"/></linearGradient><linearGradient id="d2g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f472b6"/><stop offset="1" stop-color="#1e1b4b"/></linearGradient><linearGradient id="d2g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#60a5fa"/><stop offset="1" stop-color="#0f172a"/></linearGradient><linearGradient id="d2g5" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#facc15"/><stop offset="1" stop-color="#9a3412"/></linearGradient></defs><rect width="852" height="462" fill="#ffffff"/><rect width="852" height="30" fill="#f1f1f4"/>
+<rect x="12" y="9" width="12" height="12" rx="3" fill="#6d5df6"/><text x="32" y="20" font-size="12" fill="#333">Video Editor</text>
+<text x="760" y="20" font-size="12" fill="#777">—</text><rect x="792" y="11" width="9" height="9" fill="none" stroke="#777"/><text x="826" y="20" font-size="13" fill="#777">✕</text><rect x="0" y="30" width="852" height="30" fill="#fafafc"/><line x1="0" y1="60" x2="852" y2="60" stroke="#e3e3e8"/>
+<text x="16" y="50" font-size="12" fill="#444">File</text><text x="70" y="50" font-size="12" fill="#444">Edit</text><text x="124" y="50" font-size="12" fill="#444">View</text><rect x="770" y="36" width="68" height="20" rx="5" fill="#6d5df6"/><text x="804" y="50" font-size="11" fill="#fff" text-anchor="middle">Export</text>
+<rect x="0" y="60" width="292" height="246" fill="#f7f7f9"/><text x="14" y="79" font-size="11" font-weight="600" fill="#555">Recently used</text>
+<rect x="14" y="88" width="82" height="54" rx="5" fill="url(#d2g0)"/><rect x="60" y="127" width="32" height="12" rx="3" fill="#000a"/><text x="63" y="136" font-size="9" fill="#fff">00:08</text><rect x="106" y="88" width="82" height="54" rx="5" fill="url(#d2g1)"/><circle cx="147" cy="122" r="9" fill="#fde68a"/><rect x="152" y="127" width="32" height="12" rx="3" fill="#000a"/><text x="155" y="136" font-size="9" fill="#fff">00:15</text><rect x="198" y="88" width="82" height="54" rx="5" fill="url(#d2g2)"/><rect x="244" y="127" width="32" height="12" rx="3" fill="#000a"/><text x="247" y="136" font-size="9" fill="#fff">00:32</text><rect x="14" y="158" width="82" height="54" rx="5" fill="url(#d2g3)"/><rect x="60" y="197" width="32" height="12" rx="3" fill="#000a"/><text x="63" y="206" font-size="9" fill="#fff">00:05</text><rect x="106" y="158" width="82" height="54" rx="5" fill="url(#d2g4)"/><rect x="152" y="197" width="32" height="12" rx="3" fill="#000a"/><text x="155" y="206" font-size="9" fill="#fff">00:21</text><rect x="198" y="158" width="82" height="54" rx="5" fill="url(#d2g5)"/><rect x="244" y="197" width="32" height="12" rx="3" fill="#000a"/><text x="247" y="206" font-size="9" fill="#fff">00:12</text><rect x="292" y="60" width="560" height="246" fill="#ececf0"/><rect x="310" y="70" width="526" height="226" fill="#1d1d24"/><text x="573" y="187" font-size="13" fill="#77778a" text-anchor="middle">Preview</text>
+<rect x="0" y="306" width="852" height="156" fill="#f4f4f7"/><line x1="0" y1="306" x2="852" y2="306" stroke="#e3e3e8"/><line x1="300" y1="318" x2="300" y2="326" stroke="#aaa"/><text x="303" y="326" font-size="9" fill="#888">00:00</text><line x1="376" y1="318" x2="376" y2="326" stroke="#aaa"/><text x="379" y="326" font-size="9" fill="#888">00:05</text><line x1="452" y1="318" x2="452" y2="326" stroke="#aaa"/><text x="455" y="326" font-size="9" fill="#888">00:10</text><line x1="528" y1="318" x2="528" y2="326" stroke="#aaa"/><text x="531" y="326" font-size="9" fill="#888">00:15</text><line x1="604" y1="318" x2="604" y2="326" stroke="#aaa"/><text x="607" y="326" font-size="9" fill="#888">00:20</text><line x1="680" y1="318" x2="680" y2="326" stroke="#aaa"/><text x="683" y="326" font-size="9" fill="#888">00:25</text><line x1="756" y1="318" x2="756" y2="326" stroke="#aaa"/><text x="759" y="326" font-size="9" fill="#888">00:30</text>
+<text x="16" y="380" font-size="11" fill="#666">Video</text><text x="16" y="416" font-size="11" fill="#666">Audio</text>
+<rect x="300" y="356" width="538" height="40" rx="5" fill="#fff" stroke="#e6e6ec"/><rect x="300" y="398" width="538" height="28" rx="5" fill="#fff" stroke="#e6e6ec"/><text x="530" y="381" font-size="12" fill="#9a9aa8" text-anchor="middle">Drag a video here</text>
+<line x1="300" y1="312" x2="300" y2="440" stroke="#ef4444" stroke-width="1.5"/></svg><div class="mk" style="left:17.3%;top:24.9%"></div><div class="lab" style="left:17.3%;top:20.8%">The 00:15 video</div></div>
+          <div class="shot"><svg viewBox="0 0 852 462" role="img" aria-label="The timeline now has a video" font-family="Segoe UI, Microsoft JhengHei UI, sans-serif"><defs><linearGradient id="d3g0" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#1e3a8a"/></linearGradient><linearGradient id="d3g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fb923c"/><stop offset="1" stop-color="#7c3aed"/></linearGradient><linearGradient id="d3g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a3e635"/><stop offset="1" stop-color="#166534"/></linearGradient><linearGradient id="d3g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f472b6"/><stop offset="1" stop-color="#1e1b4b"/></linearGradient><linearGradient id="d3g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#60a5fa"/><stop offset="1" stop-color="#0f172a"/></linearGradient><linearGradient id="d3g5" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#facc15"/><stop offset="1" stop-color="#9a3412"/></linearGradient></defs><rect width="852" height="462" fill="#ffffff"/><rect width="852" height="30" fill="#f1f1f4"/>
+<rect x="12" y="9" width="12" height="12" rx="3" fill="#6d5df6"/><text x="32" y="20" font-size="12" fill="#333">Video Editor</text>
+<text x="760" y="20" font-size="12" fill="#777">—</text><rect x="792" y="11" width="9" height="9" fill="none" stroke="#777"/><text x="826" y="20" font-size="13" fill="#777">✕</text><rect x="0" y="30" width="852" height="30" fill="#fafafc"/><line x1="0" y1="60" x2="852" y2="60" stroke="#e3e3e8"/>
+<text x="16" y="50" font-size="12" fill="#444">File</text><text x="70" y="50" font-size="12" fill="#444">Edit</text><text x="124" y="50" font-size="12" fill="#444">View</text><rect x="770" y="36" width="68" height="20" rx="5" fill="#6d5df6"/><text x="804" y="50" font-size="11" fill="#fff" text-anchor="middle">Export</text>
+<rect x="0" y="60" width="292" height="246" fill="#f7f7f9"/><text x="14" y="79" font-size="11" font-weight="600" fill="#555">Recently used</text>
+<rect x="14" y="88" width="82" height="54" rx="5" fill="url(#d3g0)"/><rect x="60" y="127" width="32" height="12" rx="3" fill="#000a"/><text x="63" y="136" font-size="9" fill="#fff">00:08</text><rect x="106" y="88" width="82" height="54" rx="5" fill="url(#d3g1)"/><circle cx="147" cy="122" r="9" fill="#fde68a"/><rect x="152" y="127" width="32" height="12" rx="3" fill="#000a"/><text x="155" y="136" font-size="9" fill="#fff">00:15</text><rect x="198" y="88" width="82" height="54" rx="5" fill="url(#d3g2)"/><rect x="244" y="127" width="32" height="12" rx="3" fill="#000a"/><text x="247" y="136" font-size="9" fill="#fff">00:32</text><rect x="14" y="158" width="82" height="54" rx="5" fill="url(#d3g3)"/><rect x="60" y="197" width="32" height="12" rx="3" fill="#000a"/><text x="63" y="206" font-size="9" fill="#fff">00:05</text><rect x="106" y="158" width="82" height="54" rx="5" fill="url(#d3g4)"/><rect x="152" y="197" width="32" height="12" rx="3" fill="#000a"/><text x="155" y="206" font-size="9" fill="#fff">00:21</text><rect x="198" y="158" width="82" height="54" rx="5" fill="url(#d3g5)"/><rect x="244" y="197" width="32" height="12" rx="3" fill="#000a"/><text x="247" y="206" font-size="9" fill="#fff">00:12</text><rect x="292" y="60" width="560" height="246" fill="#ececf0"/><rect x="310" y="70" width="526" height="226" fill="url(#d3g1)"/><circle cx="573" cy="200" r="38" fill="#fde68a"/><path d="M310 258 L420 200 L500 240 L600 180 L700 236 L836 190 L836 296 L310 296Z" fill="#1e1b4bcc"/>
+<rect x="0" y="306" width="852" height="156" fill="#f4f4f7"/><line x1="0" y1="306" x2="852" y2="306" stroke="#e3e3e8"/><line x1="300" y1="318" x2="300" y2="326" stroke="#aaa"/><text x="303" y="326" font-size="9" fill="#888">00:00</text><line x1="376" y1="318" x2="376" y2="326" stroke="#aaa"/><text x="379" y="326" font-size="9" fill="#888">00:05</text><line x1="452" y1="318" x2="452" y2="326" stroke="#aaa"/><text x="455" y="326" font-size="9" fill="#888">00:10</text><line x1="528" y1="318" x2="528" y2="326" stroke="#aaa"/><text x="531" y="326" font-size="9" fill="#888">00:15</text><line x1="604" y1="318" x2="604" y2="326" stroke="#aaa"/><text x="607" y="326" font-size="9" fill="#888">00:20</text><line x1="680" y1="318" x2="680" y2="326" stroke="#aaa"/><text x="683" y="326" font-size="9" fill="#888">00:25</text><line x1="756" y1="318" x2="756" y2="326" stroke="#aaa"/><text x="759" y="326" font-size="9" fill="#888">00:30</text>
+<text x="16" y="380" font-size="11" fill="#666">Video</text><text x="16" y="416" font-size="11" fill="#666">Audio</text>
+<rect x="300" y="356" width="538" height="40" rx="5" fill="#fff" stroke="#e6e6ec"/><rect x="300" y="398" width="538" height="28" rx="5" fill="#fff" stroke="#e6e6ec"/><rect x="300" y="360" width="170" height="32" rx="5" fill="url(#d3g1)"/><rect x="304" y="364" width="37" height="24" rx="3" fill="#ffffff33"/><rect x="345" y="364" width="37" height="24" rx="3" fill="#ffffff33"/><rect x="386" y="364" width="37" height="24" rx="3" fill="#ffffff33"/><rect x="427" y="364" width="37" height="24" rx="3" fill="#ffffff33"/>
+<rect x="300" y="400" width="170" height="24" rx="5" fill="#c4f1e4"/><path d="M304 412 L306 415 L310 407 L314 419 L318 408 L322 418 L326 409 L330 417 L334 405 L338 416 L342 406 L346 415 L350 407 L354 419 L358 408 L362 418 L366 409 L370 417 L374 405 L378 416 L382 406 L386 415 L390 407 L394 419 L398 408 L402 418 L406 409 L410 417 L414 405 L418 416 L422 406 L426 415 L430 407 L434 419 L438 408 L442 418 L446 409 L450 417 L454 405 L458 416 L462 406 L466 415" fill="none" stroke="#14b8a6" stroke-width="1.2"/>
+<line x1="470" y1="312" x2="470" y2="440" stroke="#ef4444" stroke-width="1.5"/></svg><div class="box" style="left:34.7%;top:77.1%;width:20.9%;height:8.7%"></div><div class="lab" style="left:45.2%;top:77.1%">The added video</div></div>
+        </div>
+        <div class="ctl"><button id="pPrev">Back</button><button id="pPlay">Pause</button><button id="pNext">Next</button><span class="txt" id="pTxt"></span></div>
+      </div>
+      <ol class="calls" id="calls">
+        <li><b>Look at the screen</b>You say "add a video in Video Editor". Claude takes a screenshot, sees the home page, and clicks "Video tools" on the left.</li>
+        <li><b>Click "Video Editor"</b>After the click it gets a new screenshot: the Video tools page. Next it clicks "Video Editor".</li>
+        <li><b>Click a video</b>New screenshot: the empty editor. It clicks the 00:15 video under "Recently used".</li>
+        <li><b>Check that it's done</b>New screenshot: the timeline now has a video. Claude tells you it's done and shows you the screenshot.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ③ -->
+  <section class="step" data-s="3">
+    <h2><span class="n">③</span>Problems</h2>
+    <p class="why">Find the row that matches what you see, and paste the text on the right into Claude Code.</p>
+    <table>
+      <tr><th style="width:34%">What you see</th><th>Paste into Claude Code</th></tr>
+      <tr><td>You clicked <b>Deny</b> in the dialog by mistake</td><td><div class="copy"><pre>Try the last action again. This time I'll choose Allow in the dialog</pre><button>Copy</button></div><span class="hint">Deny isn't remembered, so when it tries again, you're asked again.</span></td></tr>
+      <tr><td>You want to <b>take back the permission</b> for an app</td><td><div class="copy"><pre>Use codex-hands's allowed_apps to remove videoeditor.exe from the allowed list</pre><button>Copy</button></div><span class="hint">Replace <code>videoeditor.exe</code> with the app's exe name. To see which apps are allowed now, say "List the apps codex-hands is allowed to use".</span></td></tr>
+      <tr><td>Claude is waiting for your permission, but <b>you don't see a window asking you</b></td><td><span class="hint">Look in the taskbar for a <b>codex-hands</b> window; another window may be covering it. If you don't answer within 3 minutes, Claude asks whether you want to try again.</span></td></tr>
+      <tr><td>Claude says the permission window <b>couldn't be shown</b></td><td><div class="copy"><pre>Try the last action again</pre><button>Copy</button></div><span class="hint">If it still doesn't work, send the error message Claude shows you to the person who looks after this plugin.</span></td></tr>
+      <tr><td>Claude says an app is <b>always denied</b></td><td><span class="hint">For safety, terminals, Claude, Codex, ChatGPT and the lock screen can't be operated, and this can't be changed.</span></td></tr>
+      <tr><td>Claude says it has <b>no codex-hands tools</b></td><td><span class="hint">First close Claude Code and open it again. If that doesn't help, paste the message from ① again.</span></td></tr>
+      <tr><td>Claude says it <b>can't find the Codex app</b></td><td><span class="hint">Install "Codex" (by OpenAI) from the Microsoft Store, then paste the message from ① again. The Codex app only needs to be installed; it doesn't need to be open.</span></td></tr>
+      <tr><td>Claude says <b>the user stopped the action</b></td><td><div class="copy"><pre>Continue the last action</pre><button>Copy</button></div><span class="hint">This means you pressed Esc (or it thinks you did).</span></td></tr>
+      <tr><td>It <b>stopped working</b> after a Codex app update</td><td><div class="copy"><pre>Update the codex-hands plugin (claude plugin marketplace update codex-hands, then claude plugin update codex-hands@codex-hands). Then in %USERPROFILE%\.claude\plugins\marketplaces\codex-hands, run node test/smoke.mjs and tell me the result and the likely cause</pre><button>Copy</button></div><span class="hint">A newer version on GitHub may already fix it.</span></td></tr>
+      <tr><td>You want the <b>newest version</b></td><td><div class="copy"><pre>Update the codex-hands plugin: run claude plugin marketplace update codex-hands, then claude plugin update codex-hands@codex-hands</pre><button>Copy</button></div><span class="hint">Then close Claude Code and open it again.</span></td></tr>
+      <tr><td>You don't want it any more and want to <b>remove</b> it</td><td><div class="copy"><pre>Remove the codex-hands plugin: run claude plugin uninstall codex-hands@codex-hands</pre><button>Copy</button></div></td></tr>
+    </table>
+
+    <h3>Why it's sometimes blocked: two gates</h3>
+    <p class="why">Follow one of Claude's clicks from start to finish. The dashed boxes are gates. The Codex app only supplies the program that does the actions; it doesn't need to be open, and it makes no decisions.</p>
+    <div class="gates">
+      <div>
+        <svg viewBox="0 0 720 330" role="img" aria-label="The two permission gates that one click goes through">
+          <defs><marker id="ga" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5"/></marker></defs>
+          <line class="ln" x1="132" y1="72" x2="150" y2="72" marker-end="url(#ga)"/>
+          <line class="ln" x1="282" y1="72" x2="300" y2="72" marker-end="url(#ga)"/>
+          <line class="ln" x1="432" y1="62" x2="450" y2="62" marker-end="url(#ga)"/>
+          <line class="ln" x1="452" y1="84" x2="434" y2="84" marker-end="url(#ga)"/>
+          <line class="ln" x1="574" y1="72" x2="592" y2="72" marker-end="url(#ga)"/>
+          <line class="ln" x1="367" y1="104" x2="367" y2="168" marker-end="url(#ga)"/>
+          <line class="ln" x1="513" y1="270" x2="513" y2="106" marker-end="url(#ga)"/>
+          <g class="nd" id="g0"><rect x="14" y="40" width="118" height="64" rx="8"/><text x="73" y="66" text-anchor="middle">Claude</text><text class="s" x="73" y="88" text-anchor="middle">wants to click</text></g>
+          <g class="nd gate" id="g1"><rect x="152" y="40" width="130" height="64" rx="8"/><text x="217" y="66" text-anchor="middle">Gate 1</text><text class="s" x="217" y="88" text-anchor="middle">Claude Code checks</text></g>
+          <g class="nd" id="g2"><rect x="302" y="40" width="130" height="64" rx="8"/><text x="367" y="66" text-anchor="middle">plugin</text><text class="s" x="367" y="88" text-anchor="middle">codex-hands</text></g>
+          <g class="nd" id="g3"><rect x="452" y="40" width="122" height="64" rx="8"/><text x="513" y="66" text-anchor="middle">helper</text><text class="s" x="513" y="88" text-anchor="middle">comes with Codex</text></g>
+          <g class="nd" id="g5"><rect x="594" y="40" width="112" height="64" rx="8"/><text x="650" y="77" text-anchor="middle">Video Editor</text></g>
+          <g class="nd gate" id="g4"><rect x="237" y="170" width="260" height="80" rx="8"/><text x="367" y="194" text-anchor="middle">Gate 2: is this app OK?</text><text class="s" x="367" y="216" text-anchor="middle">Remembered → no question</text><text class="s" x="367" y="236" text-anchor="middle">Not remembered → a dialog asks you</text></g>
+          <g class="nd" id="g6"><rect x="452" y="272" width="122" height="44" rx="8"/><text x="513" y="299" text-anchor="middle">You press Esc</text></g>
+          <g class="nd" style="opacity:.6"><rect x="14" y="190" width="200" height="64" rx="8" style="stroke-dasharray:2 4"/><text x="114" y="216" text-anchor="middle">Codex app</text><text class="s" x="114" y="238" text-anchor="middle">needn't be open, takes no part</text></g>
+          <circle id="gdot" cx="73" cy="26" r="8"/>
+        </svg>
+        <div class="ctl"><button id="gPrev">Back</button><button id="gPlay">Pause</button><button id="gNext">Next</button><span class="txt" id="gTxt"></span></div>
+      </div>
+      <ol class="calls" id="gsteps">
+        <li><b>Claude</b>decides to click.</li>
+        <li><b>Gate 1: Claude Code</b>May Claude use this tool? The first time, you're asked (the second question in ②).</li>
+        <li><b>plugin</b>Once allowed, the click goes to the plugin, and the plugin tells the helper (a program that comes with the Codex app) to do it.</li>
+        <li><b>helper asks</b>The first time it touches Video Editor, the helper asks the plugin back: is this OK?</li>
+        <li><b>Gate 2: you're asked</b>If you chose "Always allow" before, you aren't asked. If not, a dialog asks you (the first question in ②; in the Claude desktop app it's a small Windows window). Apps such as terminals, Claude and Codex are always denied. Claude can't answer for you.</li>
+        <li><b>Video Editor</b>Allowed → the helper really clicks, and sends back a screenshot taken after the click.</li>
+        <li><b>Esc</b>Press Esc at any time and the helper stops right away.</li>
+      </ol>
+    </div>
+  </section>
+
+  <div class="nav"><button id="prev">← Previous</button><button id="next">Next →</button></div>
+</main>
+
+<script>
+(function () {
+  // ---- board ----
+  const chips = [...document.querySelectorAll(".chip")];
+  const steps = [...document.querySelectorAll(".step")];
+  const all = document.getElementById("all");
+  let cur = 1;
+  function go(n) {
+    cur = Math.min(Math.max(n, 1), steps.length);
+    document.body.classList.remove("boarded-all");
+    all.setAttribute("aria-pressed", "false");
+    steps.forEach((s) => s.classList.toggle("on", Number(s.dataset.s) === cur));
+    chips.forEach((c) => c.classList.toggle("on", Number(c.dataset.s) === cur));
+    document.getElementById("prev").disabled = cur === 1;
+    document.getElementById("next").disabled = cur === steps.length;
+    if (cur === 1) chat.restart();
+    if (cur === 2) player.restart();
+    if (cur === 3) gates.restart();
+    try { history.replaceState(null, "", "#step-" + cur); } catch (e) {}
+  }
+  chips.forEach((c) => (c.onclick = () => go(Number(c.dataset.s))));
+  document.getElementById("prev").onclick = () => { go(cur - 1); scrollTo(0, 0); };
+  document.getElementById("next").onclick = () => { go(cur + 1); scrollTo(0, 0); };
+  all.onclick = () => {
+    const on = !document.body.classList.contains("boarded-all");
+    document.body.classList.toggle("boarded-all", on);
+    all.setAttribute("aria-pressed", String(on));
+    chips.forEach((c) => c.classList.remove("on"));
+    if (on) { chat.restart(); player.restart(); gates.restart(); } else go(cur);
+  };
+
+  // ---- copy buttons ----
+  document.querySelectorAll(".copy button").forEach((b) => {
+    b.onclick = async () => {
+      const text = b.parentElement.querySelector("pre").innerText;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (e) {
+        const t = document.createElement("textarea");
+        t.value = text; document.body.appendChild(t); t.select();
+        try { document.execCommand("copy"); } catch (e2) {}
+        t.remove();
+      }
+      b.textContent = "Copied"; b.classList.add("done");
+      setTimeout(() => { b.textContent = "Copy"; b.classList.remove("done"); }, 1500);
+    };
+  });
+
+  // A looping stepper: highlights one item per tick and lets the reader step or pause.
+  function stepper(count, show, ms, ids) {
+    const playBtn = document.getElementById(ids.play);
+    let i = 0, playing = true, timer = null;
+    const render = () => { show(i); document.getElementById(ids.txt).textContent = `${i + 1} / ${count}`; };
+    function schedule() {
+      clearTimeout(timer);
+      if (playing) timer = setTimeout(() => { i = (i + 1) % count; render(); schedule(); }, ms(i));
+    }
+    document.getElementById(ids.next).onclick = () => { i = Math.min(i + 1, count - 1); render(); schedule(); };
+    document.getElementById(ids.prev).onclick = () => { i = Math.max(i - 1, 0); render(); schedule(); };
+    playBtn.onclick = () => { playing = !playing; playBtn.textContent = playing ? "Pause" : "Play"; schedule(); };
+    return { restart() { i = 0; render(); schedule(); } };
+  }
+
+  // ---- ① install chat, one reply at a time ----
+  const chat = (function () {
+    const lines = [...document.querySelectorAll("#chat .t")];
+    let timer = null;
+    function restart() {
+      clearTimeout(timer);
+      lines.forEach((l) => l.classList.remove("show"));
+      let i = 0;
+      const next = () => {
+        if (i < lines.length) { lines[i++].classList.add("show"); timer = setTimeout(next, i === 3 ? 1600 : 900); }
+        else timer = setTimeout(restart, 4000);
+      };
+      timer = setTimeout(next, 700);
+    }
+    return { restart };
+  })();
+
+  // ---- ② drawn walkthrough ----
+  const shots = [...document.querySelectorAll("#slides .shot")];
+  const calls = [...document.querySelectorAll("#calls li")];
+  const player = stepper(shots.length, (i) => {
+    shots.forEach((s, k) => s.classList.toggle("on", k === i));
+    calls.forEach((c, k) => c.classList.toggle("on", k === i));
+  }, (i) => (i === shots.length - 1 ? 4000 : 3000), { prev: "pPrev", next: "pNext", play: "pPlay", txt: "pTxt" });
+
+  // ---- ③ one click through the two permission gates ----
+  const stops = [["g0", 73, 26], ["g1", 217, 26], ["g2", 367, 26], ["g3", 513, 26], ["g4", 367, 158], ["g5", 650, 26], ["g6", 438, 294]];
+  const gsteps = [...document.querySelectorAll("#gsteps li")];
+  const dot = document.getElementById("gdot");
+  const gates = stepper(stops.length, (i) => {
+    stops.forEach(([id], k) => document.getElementById(id).classList.toggle("on", k === i || (i === 4 && id === "g2")));
+    gsteps.forEach((li, k) => li.classList.toggle("on", k === i));
+    dot.setAttribute("cx", stops[i][1]); dot.setAttribute("cy", stops[i][2]);
+  }, () => 2800, { prev: "gPrev", next: "gNext", play: "gPlay", txt: "gTxt" });
+
+  const fromHash = location.hash.match(/step-(\d+)/);
+  go(fromHash ? Number(fromHash[1]) : 1);
+})();
+</script>
+</body>
+</html>

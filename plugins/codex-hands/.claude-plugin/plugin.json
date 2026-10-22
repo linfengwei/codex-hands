@@ -1,0 +1,9 @@
+{
+  "name": "codex-hands",
+  "version": "0.3.0",
+  "description": "Codex's computer use, lent to Claude Code on Windows: screenshots, accessibility trees, clicks and typing in desktop app windows, through the installed Codex app's runtime.",
+  "author": { "name": "linfengwei", "url": "https://github.com/linfengwei" },
+  "homepage": "https://github.com/linfengwei/codex-hands",
+  "repository": "https://github.com/linfengwei/codex-hands",
+  "keywords": ["windows", "computer-use", "codex", "ui-automation", "mcp"]
+}
