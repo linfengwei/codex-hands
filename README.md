@@ -126,6 +126,7 @@ Codex's `~/.codex/computer-use/config.toml` is not read.
 node test/smoke.mjs                 # start, list tools, list windows
 node test/smoke.mjs "Video Editor"  # also observe the window with exactly this title (read-only); the dialog asks on the terminal
 node test/call.mjs '[{"name":"click","arguments":{"window_title":"Video Editor","x":38,"y":700}}]'
+node test/moved-app.mjs             # the server follows the Codex app after an update removes its folder (copies about 250 MB)
 ```
 
 The test clients answer the dialog from `CODEX_HANDS_TEST_ANSWER` (always, session, decline, cancel); `CODEX_HANDS_TEST_DELAY_MS`
@@ -135,6 +136,9 @@ makes them answer later.
 
 - `@oai/sky` and the helper are private parts of the Codex app. An app update can change them; the server logs a
   warning when the sky version is not a tested one. Check the license terms before you share this with others.
+- The Codex app updates itself and removes the old version's folder. Before each call the server checks the folder
+  it uses; when it is gone, the server closes the helper, finds the app again and loads sky from the new folder, so
+  you do not have to reconnect. The server itself keeps running on the old node.exe until Claude Code restarts it.
 - The helper closes after 2 idle minutes and when a turn ends; the next call starts a new one.
 - Before you use element numbers, the last change must be followed by a `get_window_state` with both
   `include_text` and `include_screenshot`.

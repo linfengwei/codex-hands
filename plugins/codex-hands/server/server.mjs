@@ -5,10 +5,11 @@ import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { readFileSync, statSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, statSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { execFile } from "node:child_process";
+import { findCodexApp } from "./codex-app.mjs";
 
-const SERVER = { name: "codex-hands", version: "0.3.0" };
+const SERVER = { name: "codex-hands", version: "0.3.1" };
 const TESTED_SKY = ["0.7.12"];
 const IDLE_CLOSE_MS = 120_000;
 const DIALOG_TIMEOUT_MS = 180_000;
@@ -28,16 +29,26 @@ const log = (...a) => process.stderr.write(`[codex-hands] ${a.join(" ")}\n`);
 console.log = log;
 console.info = log;
 
-const skyDir = process.env.SKY_DIR;
+// The sky in use. The Codex app updates itself and removes the old version's folder; before each call,
+// followCodexApp() loads sky again from the folder the app has now (the server keeps running on the old node.exe).
+let skyDir = process.env.SKY_DIR;
+let skyVersion = null;
+let WindowsComputerUseClient = null;
 if (!skyDir) {
   log("SKY_DIR is not set; start the server through launch.mjs");
   process.exit(1);
 }
-const skyVersion = JSON.parse(readFileSync(join(skyDir, "package.json"), "utf8")).version;
-if (!TESTED_SKY.includes(skyVersion)) log(`@oai/sky ${skyVersion} is not a tested version (${TESTED_SKY.join(", ")})`);
-const { WindowsComputerUseClient } = await import(
-  pathToFileURL(join(skyDir, "dist", "project", "cua", "sky_js", "src", "targets", "windows", "internal", "computer_use_client.js")).href
-);
+
+async function loadSky(dir) {
+  const version = JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).version;
+  if (!TESTED_SKY.includes(version)) log(`@oai/sky ${version} is not a tested version (${TESTED_SKY.join(", ")})`);
+  ({ WindowsComputerUseClient } = await import(
+    pathToFileURL(join(dir, "dist", "project", "cua", "sky_js", "src", "targets", "windows", "internal", "computer_use_client.js")).href
+  ));
+  skyDir = dir;
+  skyVersion = version;
+}
+await loadSky(skyDir);
 
 // ---- app approval -------------------------------------------------------------------------------
 // The helper asks before it touches an app; sky passes the question to nodeRepl.createElicitation.
@@ -302,6 +313,16 @@ async function closeClient(reason) {
   observed.clear();
   log(`closing helper (${reason})`);
   await c.close().catch((e) => log(`close failed: ${e?.message ?? e}`));
+}
+
+// When the Codex app's folder is gone (it updated itself), close the helper, which runs from that folder,
+// and load sky from the folder the app has now. Errors here come back as the tool's error.
+async function followCodexApp() {
+  if (existsSync(join(skyDir, "package.json"))) return;
+  await closeClient("the Codex app's folder is gone");
+  const app = findCodexApp();
+  log(`@oai/sky moved: ${skyDir} -> ${app.skyDir}`);
+  await loadSky(app.skyDir);
 }
 
 function touchIdle() {
@@ -655,6 +676,7 @@ async function callTool(name, args) {
   const { content, error, approval } = await queue(async () => {
     lastApproval = null;
     try {
+      await followCodexApp();
       return { content: await tool.run(args ?? {}), approval: lastApproval };
     } catch (e) {
       return { error: e, approval: lastApproval };

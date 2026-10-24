@@ -119,6 +119,7 @@ Claude app，以及鎖定畫面，一律拒絕，不會跳對話框。
 node test/smoke.mjs                 # 啟動、列出工具、列出視窗
 node test/smoke.mjs "Video Editor"  # 另外觀察 title 完全相同的視窗（只讀）；允許的對話框改在終端機問你
 node test/call.mjs '[{"name":"click","arguments":{"window_title":"Video Editor","x":38,"y":700}}]'
+node test/moved-app.mjs             # Codex app 更新、刪掉舊資料夾之後，server 會跟過去（會複製約 250 MB）
 ```
 
 測試 client 用 `CODEX_HANDS_TEST_ANSWER`（always、session、decline、cancel）回答對話框，`CODEX_HANDS_TEST_DELAY_MS` 讓它晚一點回答。
@@ -127,6 +128,8 @@ node test/call.mjs '[{"name":"click","arguments":{"window_title":"Video Editor",
 
 - `@oai/sky` 和 helper 是 Codex app 的私有部分。app 更新可能改變它們；sky 版本不是測試過的版本時，
   server 會記一個警告。分享給別人之前，先確認授權條款。
+- Codex app 會自己更新，並刪掉舊版的資料夾。每次呼叫之前，server 先檢查它用的資料夾還在不在；不在就關掉
+  helper、重新找 app，從新的資料夾載入 sky，不用重新連。server 本身會繼續用舊的 node.exe，直到 Claude Code 重開它。
 - helper 閒置 2 分鐘和一輪結束時會關掉；下一次呼叫會開新的。
 - 用元件編號之前，最後一次改變之後要有一次同時帶 `include_text` 和 `include_screenshot` 的
   `get_window_state`。
